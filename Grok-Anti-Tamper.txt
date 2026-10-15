@@ -1,0 +1,1100 @@
+-- GrokBuild-AntiTamper.lua
+-- Model: Grok Build
+--
+-- Environment-integrity seal for Lua 5.1+ and Luau (including Roblox).
+-- Original. Not a copy of the public anti-tamper dumps.
+--
+-- Why the public dumps stopped working
+--   They are one recognizable branch: if some_check then error("dtc") / while true do end.
+--   A patcher deletes that branch and the script still runs. Name denylists
+--   (getgenv, hookfunction, syn, krnl, ...) are deleted or hidden. Fixed digests
+--   and famous engine constants are hardcoded in emulators.
+--
+-- What this does instead
+--   Every witness contributes bytes to a keyed mix. There is no central fail().
+--   Seal(salt) is a hex digest of THIS environment under YOUR salt.
+--   Stream(salt, n) is key material from that same mix. Decrypt with it.
+--   If a witness is removed, hooked, or spoofed, the bytes change and the
+--   plaintext becomes garbage. There is no if-statement to NOP.
+--   Grok.Witness(id, fn) adds a private oracle that is not in this file.
+--   Keep that oracle in a separate chunk. A leak of this file alone does not
+--   carry your private contribution.
+--
+-- Limits (do not ignore these)
+--   A caller who fully controls the VM can still emulate every witness.
+--   This raises the cost; it does not create trust in a hostile client.
+--   Do not ban players from a mismatch. Studio, server, and client seals differ.
+--   Keep real secrets and game authority on the server.
+--   Recapture the seal after you edit this file or after an engine update.
+--   Call Seal/Stream at startup or before unwrapping a secret, not every frame.
+--
+-- Capture once on the runtime you actually ship to (same VM, same globals):
+--
+--   local Grok = require(path.to.this.module) -- or loadstring(source)()
+--   print(Grok.Seal("replace-with-a-long-private-salt"))
+--
+-- Then gate the payload:
+--
+--   local EXPECT = "paste-the-hex-from-the-clean-capture"
+--   local key = Grok.Unlock("replace-with-a-long-private-salt", EXPECT, 32)
+--   if not key then
+--     return -- do not unwrap. key is nil; nothing here throws a known string.
+--   end
+--   local plain = Grok.Xor(cipherString, key)
+--
+-- Stronger shape (no compare to patch):
+--
+--   local key = Grok.Stream(SALT, 32) -- always returns bytes
+--   local plain = Grok.Xor(cipherString, key) -- wrong environment => garbage
+--
+-- Private witness (put this NEXT TO your script, not in a public copy):
+--
+--   Grok.Witness("build-private", function()
+--     return (17 * 17 + 29) % 997
+--   end)
+--
+-- The witness must be pure: no os.clock, no math.random, no addresses.
+
+local Grok = {
+    VERSION = "1.0.0",
+    MODEL = "GrokBuild",
+    Reason = {
+        Ok = 0,
+        Mismatch = 1,
+        BadArgument = 2,
+    },
+}
+
+-- Captured before any later line can replace a global. Post-load swaps are
+-- visible because later reads of the global no longer match these references.
+-- In-place hooks that replace the closure itself are visible only if behavior,
+-- C/Lua provenance, or the private witness stops matching the clean capture.
+local CAP = {
+    type = type,
+    pcall = pcall,
+    xpcall = xpcall,
+    error = error,
+    tostring = tostring,
+    tonumber = tonumber,
+    select = select,
+    next = next,
+    rawequal = rawequal,
+    rawget = rawget,
+    rawset = rawset,
+    getmetatable = getmetatable,
+    setmetatable = setmetatable,
+    byte = string.byte,
+    char = string.char,
+    sub = string.sub,
+    find = string.find,
+    format = string.format,
+    rep = string.rep,
+    concat = table.concat,
+    sort = table.sort,
+    floor = math.floor,
+    create = coroutine.create,
+    resume = coroutine.resume,
+    status = coroutine.status,
+    yield = coroutine.yield,
+    load = load,
+    bit32 = bit32,
+    debug = debug,
+    utf8 = utf8,
+    huge = math.huge,
+}
+
+local extras = {}
+
+local MOD32 = 4294967296
+
+local function u32(n)
+    n = CAP.tonumber(n) or 0
+    if n \~= n or n == CAP.huge or n == -CAP.huge then
+        return 0
+    end
+    n = n % MOD32
+    if n < 0 then
+        n = n + MOD32
+    end
+    return n
+end
+
+local function add32(a, b)
+    return u32(u32(a) + u32(b))
+end
+
+local function bits_of(a)
+    a = u32(a)
+    local t = {}
+    for i = 1, 32 do
+        local bit = a % 2
+        t[i] = bit
+        a = (a - bit) / 2
+    end
+    return t
+end
+
+local function from_bits(t)
+    local n = 0
+    local p = 1
+    for i = 1, 32 do
+        if t[i] == 1 then
+            n = n + p
+        end
+        p = p * 2
+    end
+    return n
+end
+
+local function band_fb(a, b)
+    local x = bits_of(a)
+    local y = bits_of(b)
+    local o = {}
+    for i = 1, 32 do
+        o[i] = (x[i] == 1 and y[i] == 1) and 1 or 0
+    end
+    return from_bits(o)
+end
+
+local function bxor_fb(a, b)
+    local x = bits_of(a)
+    local y = bits_of(b)
+    local o = {}
+    for i = 1, 32 do
+        o[i] = (x[i] \~= y[i]) and 1 or 0
+    end
+    return from_bits(o)
+end
+
+local function lshift_fb(a, n)
+    n = u32(n) % 32
+    local x = bits_of(a)
+    local o = {}
+    for i = 1, 32 do
+        o[i] = 0
+    end
+    for i = 1, 32 - n do
+        o[i + n] = x[i]
+    end
+    return from_bits(o)
+end
+
+local function rshift_fb(a, n)
+    n = u32(n) % 32
+    local x = bits_of(a)
+    local o = {}
+    for i = 1, 32 do
+        o[i] = 0
+    end
+    for i = n + 1, 32 do
+        o[i - n] = x[i]
+    end
+    return from_bits(o)
+end
+
+local function rotl_fb(a, n)
+    a = u32(a)
+    n = u32(n) % 32
+    if n == 0 then
+        return a
+    end
+    return add32(lshift_fb(a, n), rshift_fb(a, 32 - n))
+end
+
+local bit32lib = CAP.bit32
+
+local function band(a, b)
+    if CAP.type(bit32lib) == "table" and CAP.type(bit32lib.band) == "function" then
+        return bit32lib.band(u32(a), u32(b))
+    end
+    return band_fb(a, b)
+end
+
+local function bxor(a, b)
+    if CAP.type(bit32lib) == "table" and CAP.type(bit32lib.bxor) == "function" then
+        return bit32lib.bxor(u32(a), u32(b))
+    end
+    return bxor_fb(a, b)
+end
+
+local function rotl(a, n)
+    if CAP.type(bit32lib) == "table" and CAP.type(bit32lib.lrotate) == "function" then
+        return bit32lib.lrotate(u32(a), u32(n) % 32)
+    end
+    return rotl_fb(a, n)
+end
+
+local function permute(s)
+    s[1] = bxor(s[1], rotl(add32(s[2], s[4]), 7))
+    s[4] = add32(s[4], rotl(bxor(s[3], s[1]), 9))
+    s[2] = rotl(add32(s[2], bxor(s[1], s[3])), 13)
+    s[3] = bxor(s[3], rotl(add32(s[4], s[2]), 17))
+    s[1] = add32(s[1], s[3])
+    s[2] = bxor(s[2], rotl(s[1], 3))
+end
+
+local function absorb_byte(s, b)
+    b = u32(b) % 256
+    s[1] = bxor(s[1], b)
+    s[2] = add32(rotl(s[2], 5), bxor(s[1], 0xA3C59AC3))
+    s[3] = add32(s[3], rotl(bxor(s[1], s[2]), 11))
+    s[4] = rotl(add32(s[4], bxor(s[3], b)), 17)
+    s.n = s.n + 1
+    if s.n % 7 == 0 then
+        permute(s)
+    end
+end
+
+local function absorb_str(s, str)
+    if CAP.type(str) \~= "string" then
+        str = CAP.tostring(str)
+    end
+    local n = #str
+    if n > 4096 then
+        str = CAP.sub(str, 1, 64)
+        n = #str
+        absorb_byte(s, 255)
+    end
+    absorb_byte(s, n % 256)
+    absorb_byte(s, CAP.floor(n / 256) % 256)
+    for i = 1, n do
+        absorb_byte(s, CAP.byte(str, i))
+    end
+end
+
+local function absorb(s, v)
+    local tv = CAP.type(v)
+    absorb_str(s, tv)
+    if tv == "number" then
+        if v \~= v then
+            absorb_str(s, "nan")
+        elseif v == CAP.huge then
+            absorb_str(s, "+inf")
+        elseif v == -CAP.huge then
+            absorb_str(s, "-inf")
+        else
+            absorb_str(s, CAP.tostring(v))
+        end
+    elseif tv == "string" or tv == "boolean" then
+        absorb_str(s, tv == "boolean" and (v and "1" or "0") or v)
+    else
+        absorb_str(s, "-")
+    end
+end
+
+local function feed(s, tag, value)
+    absorb_str(s, tag)
+    absorb(s, value)
+end
+
+local function new_state(salt)
+    local s = {
+        0xC3A59A3D,
+        0x79F56D2B,
+        0xD9AB1F83,
+        0x3720C6EF,
+        n = 0,
+    }
+    absorb_str(s, "GrokBuild-AntiTamper/1")
+    absorb_str(s, salt)
+    permute(s)
+    permute(s)
+    return s
+end
+
+local function names_of(t)
+    local names = {}
+    local k = nil
+    local guard = 0
+    while guard < 64 do
+        local nk = CAP.next(t, k)
+        if nk == nil then
+            break
+        end
+        k = nk
+        guard = guard + 1
+        names[#names + 1] = nk
+    end
+    CAP.sort(names)
+    return names
+end
+
+local function key_census(t)
+    if CAP.type(t) \~= "table" then
+        return CAP.type(t)
+    end
+    local ks = {}
+    local idx = nil
+    local guard = 0
+    while guard < 5000 do
+        local nk = CAP.next(t, idx)
+        if nk == nil then
+            break
+        end
+        idx = nk
+        guard = guard + 1
+        if CAP.type(nk) == "string" then
+            ks[#ks + 1] = nk
+        end
+    end
+    if guard >= 5000 then
+        return "overflow"
+    end
+    CAP.sort(ks)
+    return CAP.concat(ks, ",")
+end
+
+local function stable_source(src)
+    if src == "[C]" or src == "=[C]" or src == "C" then
+        return src
+    end
+    if CAP.type(src) \~= "string" then
+        return CAP.type(src)
+    end
+    return "chunk"
+end
+
+local function proto_sig(fn)
+    local dbg = CAP.debug
+    if CAP.type(dbg) \~= "table" then
+        return "nodebug"
+    end
+    if CAP.type(dbg.getinfo) == "function" then
+        local ok, info = CAP.pcall(dbg.getinfo, fn, "Slnu")
+        if ok and CAP.type(info) == "table" then
+            return CAP.concat({
+                CAP.tostring(info.what),
+                stable_source(info.source),
+                CAP.tostring(info.linedefined),
+                CAP.tostring(info.lastlinedefined),
+                CAP.tostring(info.nups),
+                CAP.tostring(info.nparams),
+                CAP.tostring(info.isvararg),
+            }, ":")
+        end
+        return "err"
+    end
+    if CAP.type(dbg.info) == "function" then
+        local packed = { CAP.pcall(dbg.info, fn, "la") }
+        if not packed[1] then
+            return "err"
+        end
+        local parts = {}
+        for i = 2, #packed do
+            parts[#parts + 1] = CAP.tostring(packed[i])
+        end
+        local src_ok, src = CAP.pcall(dbg.info, fn, "s")
+        parts[#parts + 1] = src_ok and stable_source(src) or "err"
+        return CAP.concat(parts, ":")
+    end
+    return "none"
+end
+
+local function witness_identity(s)
+    local current = {
+        ["type"] = type,
+        ["pcall"] = pcall,
+        ["xpcall"] = xpcall,
+        ["error"] = error,
+        ["tostring"] = tostring,
+        ["tonumber"] = tonumber,
+        ["select"] = select,
+        ["next"] = next,
+        ["rawequal"] = rawequal,
+        ["rawget"] = rawget,
+        ["rawset"] = rawset,
+        ["getmetatable"] = getmetatable,
+        ["setmetatable"] = setmetatable,
+        ["string.byte"] = string.byte,
+        ["string.char"] = string.char,
+        ["string.sub"] = string.sub,
+        ["string.find"] = string.find,
+        ["string.format"] = string.format,
+        ["string.rep"] = string.rep,
+        ["table.concat"] = table.concat,
+        ["table.sort"] = table.sort,
+        ["math.floor"] = math.floor,
+        ["coroutine.create"] = coroutine.create,
+        ["coroutine.resume"] = coroutine.resume,
+        ["coroutine.status"] = coroutine.status,
+    }
+    local captured = {
+        ["type"] = CAP.type,
+        ["pcall"] = CAP.pcall,
+        ["xpcall"] = CAP.xpcall,
+        ["error"] = CAP.error,
+        ["tostring"] = CAP.tostring,
+        ["tonumber"] = CAP.tonumber,
+        ["select"] = CAP.select,
+        ["next"] = CAP.next,
+        ["rawequal"] = CAP.rawequal,
+        ["rawget"] = CAP.rawget,
+        ["rawset"] = CAP.rawset,
+        ["getmetatable"] = CAP.getmetatable,
+        ["setmetatable"] = CAP.setmetatable,
+        ["string.byte"] = CAP.byte,
+        ["string.char"] = CAP.char,
+        ["string.sub"] = CAP.sub,
+        ["string.find"] = CAP.find,
+        ["string.format"] = CAP.format,
+        ["string.rep"] = CAP.rep,
+        ["table.concat"] = CAP.concat,
+        ["table.sort"] = CAP.sort,
+        ["math.floor"] = CAP.floor,
+        ["coroutine.create"] = CAP.create,
+        ["coroutine.resume"] = CAP.resume,
+        ["coroutine.status"] = CAP.status,
+    }
+    local names = names_of(captured)
+    for i = 1, #names do
+        local name = names[i]
+        feed(s, "id." .. name, CAP.rawequal(captured[name], current[name]) and 1 or 0)
+    end
+end
+
+local function witness_behavior(s)
+    local hi, lo = CAP.byte("Az", 1, 2)
+    feed(s, "beh.byte", (hi or 0) * 256 + (lo or 0))
+    feed(s, "beh.sub", CAP.sub("abcdef", 2, 4))
+    feed(s, "beh.rep", CAP.rep("ab", 3))
+    feed(s, "beh.fmt", CAP.format("%d:%02d", -3, 7))
+    local f1, f2 = CAP.find("abc", "b", 1, true)
+    feed(s, "beh.find", CAP.tostring(f1) .. ":" .. CAP.tostring(f2))
+    feed(s, "beh.cat", CAP.concat({ "a", "b", "c" }, "-"))
+    feed(s, "beh.sel", CAP.select("#", "a", nil, "c"))
+    feed(s, "beh.floor", CAP.floor(-1.9))
+    feed(s, "beh.mod", (-7) % 4)
+    feed(s, "beh.pow", 2 ^ 10)
+    feed(s, "beh.neg0", (1 / (-0.0) < 0) and 1 or 0)
+
+    local marker = {}
+    local ok_err, err_obj = CAP.pcall(CAP.error, marker, 0)
+    feed(s, "beh.err", (ok_err and 1 or 0) .. ":" .. (CAP.rawequal(err_obj, marker) and 1 or 0))
+
+    local seen
+    local ok_xp, xp_obj = CAP.xpcall(function()
+        CAP.error(marker, 0)
+    end, function(e)
+        seen = e
+        return e
+    end)
+    feed(s, "beh.xp", (ok_xp and 1 or 0)
+        .. ":" .. (CAP.rawequal(seen, marker) and 1 or 0)
+        .. ":" .. (CAP.rawequal(xp_obj, marker) and 1 or 0))
+
+    local left, right = {}, {}
+    local eq_mt = {
+        __eq = function()
+            return true
+        end,
+    }
+    CAP.setmetatable(left, eq_mt)
+    CAP.setmetatable(right, eq_mt)
+    feed(s, "beh.eq", (left == right) and 1 or 0)
+    feed(s, "beh.rq", CAP.rawequal(left, right) and 1 or 0)
+
+    local hits = 0
+    local boxed = CAP.setmetatable({}, {
+        __newindex = function()
+            hits = hits + 1
+        end,
+    })
+    CAP.rawset(boxed, "a", 1)
+    feed(s, "beh.rawset", hits .. ":" .. CAP.tostring(CAP.rawget(boxed, "a")))
+
+    local hidden = CAP.setmetatable({ 10, 20, 30 }, {
+        __pairs = function()
+            return function()
+                return nil
+            end
+        end,
+    })
+    local nk, nv = CAP.next(hidden, nil)
+    feed(s, "beh.next", CAP.tostring(nk) .. ":" .. CAP.tostring(nv))
+end
+
+local function witness_provenance(s)
+    feed(s, "prov.type", proto_sig(CAP.type))
+    feed(s, "prov.pcall", proto_sig(CAP.pcall))
+    feed(s, "prov.byte", proto_sig(CAP.byte))
+    feed(s, "prov.concat", proto_sig(CAP.concat))
+    feed(s, "prov.floor", proto_sig(CAP.floor))
+    feed(s, "prov.select", proto_sig(CAP.select))
+    feed(s, "prov.seal", proto_sig(witness_provenance))
+end
+
+local function witness_meta(s)
+    local ok_mt, mt = CAP.pcall(CAP.getmetatable, "")
+    feed(s, "smt.ok", ok_mt and 1 or 0)
+    if ok_mt and CAP.type(mt) == "table" then
+        feed(s, "smt.idx", CAP.rawequal(CAP.rawget(mt, "__index"), string) and 1 or 0)
+        local lock = CAP.rawget(mt, "__metatable")
+        local lock_t = CAP.type(lock)
+        if lock_t == "string" or lock_t == "number" or lock_t == "boolean" then
+            feed(s, "smt.lock", lock)
+        else
+            feed(s, "smt.lock", lock_t)
+        end
+    else
+        feed(s, "smt.idx", CAP.type(mt))
+        feed(s, "smt.lock", "none")
+    end
+    local set_ok = CAP.pcall(CAP.setmetatable, "", {})
+    feed(s, "smt.set", set_ok and 1 or 0)
+
+    if CAP.type(setfenv) == "function" and CAP.type(getfenv) == "function" then
+        local function scratch()
+            return 1
+        end
+        local ok_before, before = CAP.pcall(getfenv, scratch)
+        local dummy = {}
+        local ok_set = CAP.pcall(setfenv, scratch, dummy)
+        local ok_after, after = CAP.pcall(getfenv, scratch)
+        feed(s, "sfe", (ok_set and ok_after and CAP.rawequal(after, dummy)) and 1 or 0)
+        if ok_before then
+            CAP.pcall(setfenv, scratch, before)
+        end
+        local function twin_a()
+        end
+        local function twin_b()
+        end
+        local ok_a, env_a = CAP.pcall(getfenv, twin_a)
+        local ok_b, env_b = CAP.pcall(getfenv, twin_b)
+        feed(s, "gfe", (ok_a and ok_b and CAP.rawequal(env_a, env_b)) and 1 or 0)
+    else
+        feed(s, "sfe", "absent")
+        feed(s, "gfe", "absent")
+    end
+end
+
+local function witness_core(s)
+    -- Executed, not stored as a compare-to-constant. Editing any step changes
+    -- the contribution, including a patch that keeps the line count the same.
+    local spec = { 7, 3, 1, 4, 15, 9, 2, 6, 5, 11, 8, 13, 10, 14, 12, 0 }
+    local acc = 0
+    for i = 1, #spec do
+        local n = spec[i]
+        acc = (acc + n * i) % 65521
+        if n % 2 == 0 then
+            acc = (acc * 3 + 1) % 65521
+        else
+            acc = (acc + 17) % 65521
+        end
+    end
+    feed(s, "core", acc)
+end
+
+local function witness_coroutine(s)
+    local co = CAP.create(function()
+        CAP.yield(1, nil, 3)
+        return "z"
+    end)
+    local ok1, a, b, c = CAP.resume(co)
+    local ok2, d = CAP.resume(co)
+    local st = CAP.status(co)
+    feed(s, "co", CAP.tostring(ok1)
+        .. ":" .. CAP.tostring(a)
+        .. ":" .. CAP.tostring(b)
+        .. ":" .. CAP.tostring(c)
+        .. ":" .. CAP.tostring(ok2)
+        .. ":" .. CAP.tostring(d)
+        .. ":" .. CAP.tostring(st))
+end
+
+local function witness_compile(s)
+    local loader = CAP.load
+    if CAP.type(loader) \~= "function" then
+        loader = loadstring
+    end
+    if CAP.type(loader) \~= "function" then
+        feed(s, "ld", 0)
+        return
+    end
+    local ok, f = CAP.pcall(loader, "return 41", "grok-probe", "t")
+    if not (ok and CAP.type(f) == "function") then
+        ok, f = CAP.pcall(loader, "return 41")
+    end
+    if ok and CAP.type(f) == "function" then
+        local ok2, v = CAP.pcall(f)
+        feed(s, "ld", ok2 and v or "e")
+    else
+        feed(s, "ld", "x")
+    end
+end
+
+local function witness_utf8(s)
+    local lib = CAP.utf8
+    if CAP.type(lib) \~= "table" or CAP.type(lib.len) \~= "function" then
+        feed(s, "u8", "absent")
+        return
+    end
+    local smile = CAP.char(0xF0, 0x9F, 0x98, 0x80)
+    local text = "A" .. smile .. "B"
+    local n = lib.len(text)
+    local bad, pos = lib.len(CAP.char(0xFF))
+    feed(s, "u8", CAP.tostring(n) .. ":" .. CAP.tostring(bad) .. ":" .. CAP.tostring(pos))
+end
+
+local function witness_libs(s)
+    local libs = {
+        "string",
+        "table",
+        "math",
+        "coroutine",
+        "utf8",
+        "os",
+        "debug",
+        "bit32",
+        "buffer",
+        "task",
+    }
+    -- unique, stable order
+    local seen = {}
+    local ordered = {}
+    for i = 1, #libs do
+        local name = libs[i]
+        if not seen[name] then
+            seen[name] = true
+            ordered[#ordered + 1] = name
+        end
+    end
+    for i = 1, #ordered do
+        local name = ordered[i]
+        feed(s, "lib." .. name, key_census(_G[name]))
+    end
+end
+
+local function witness_env(s)
+    local env
+    if CAP.type(getfenv) == "function" then
+        local ok, value = CAP.pcall(getfenv, 0)
+        if ok and CAP.type(value) == "table" then
+            env = value
+        end
+    end
+    if env == nil then
+        env = _G
+    end
+    local ok_keys, keys = CAP.pcall(key_census, env)
+    feed(s, "env.keys", ok_keys and keys or "err")
+    local ok_mt, mt = CAP.pcall(CAP.getmetatable, env)
+    if ok_mt and CAP.type(mt) == "table" then
+        local idx = CAP.rawget(mt, "__index")
+        feed(s, "env.indext", CAP.type(idx))
+        if CAP.type(idx) == "table" then
+            local ok_parent, parent = CAP.pcall(key_census, idx)
+            feed(s, "env.parent", ok_parent and parent or "err")
+        else
+            feed(s, "env.parent", "noparent")
+        end
+    else
+        feed(s, "env.indext", ok_mt and CAP.type(mt) or "err")
+        feed(s, "env.parent", "noparent")
+    end
+end
+
+local function witness_hook(s)
+    local dbg = CAP.debug
+    if CAP.type(dbg) \~= "table" or CAP.type(dbg.gethook) \~= "function" then
+        feed(s, "hook", "absent")
+        return
+    end
+    local ok, hookfn = CAP.pcall(dbg.gethook)
+    if not ok then
+        feed(s, "hook", "err")
+        return
+    end
+    feed(s, "hook", hookfn == nil and 0 or 1)
+end
+
+local function witness_engine(s)
+    -- Pure datamodel-free probes. No Instance parenting, no yields, no JSON
+    -- fixture copied from public dumps. Absent APIs contribute a stable marker
+    -- so a desktop Lua capture does not pretend to be a Roblox capture.
+    if CAP.type(typeof) \~= "function" then
+        feed(s, "eng", 0)
+        return
+    end
+    feed(s, "eng", 1)
+
+    local ok_v, vx, vy, vz = CAP.pcall(function()
+        local v = Vector3.new(1, 2, 3)
+        local c = v:Cross(Vector3.new(4, -1, 2))
+        return c.X, c.Y, c.Z
+    end)
+    if ok_v then
+        feed(s, "v3", CAP.tostring(vx) .. "," .. CAP.tostring(vy) .. "," .. CAP.tostring(vz))
+        feed(s, "v3t", typeof(Vector3.new(0, 0, 0)))
+    else
+        feed(s, "v3", "x")
+        feed(s, "v3t", "x")
+    end
+
+    if CAP.type(Random) == "table" and CAP.type(Random.new) == "function" then
+        local seed = u32(s[1])
+        local ok_r, acc = CAP.pcall(function()
+            local rng = Random.new(seed)
+            local sum = 0
+            for _ = 1, 8 do
+                sum = sum + rng:NextInteger(0, 1000000)
+            end
+            return sum
+        end)
+        feed(s, "rnd", ok_r and acc or "x")
+    else
+        feed(s, "rnd", "absent")
+    end
+
+    if CAP.type(buffer) == "table" and CAP.type(buffer.create) == "function" then
+        local ok_b, word, tail = CAP.pcall(function()
+            local buf = buffer.create(8)
+            buffer.writeu32(buf, 0, 0xA1B2C3D4)
+            buffer.writeu8(buf, 4, 7)
+            return buffer.readu32(buf, 0), buffer.readu8(buf, 4)
+        end)
+        if ok_b then
+            feed(s, "buf", CAP.tostring(word) .. ":" .. CAP.tostring(tail))
+        else
+            feed(s, "buf", "x")
+        end
+    else
+        feed(s, "buf", "absent")
+    end
+end
+
+local function witness_extras(s)
+    local n = #extras
+    feed(s, "xn", n)
+    for i = 1, n do
+        local entry = extras[i]
+        local ok, value = CAP.pcall(entry[2])
+        feed(s, "x." .. CAP.tostring(entry[1]), ok and "ok" or "err")
+        if ok then
+            if CAP.type(value) == "string" and #value > 2048 then
+                value = "len:" .. #value .. ":" .. CAP.sub(value, 1, 64)
+            end
+            feed(s, "xv." .. CAP.tostring(entry[1]), value)
+        end
+    end
+end
+
+local function compute(salt)
+    local s = new_state(salt)
+    witness_identity(s)
+    witness_behavior(s)
+    witness_provenance(s)
+    witness_meta(s)
+    witness_core(s)
+    witness_coroutine(s)
+    witness_compile(s)
+    witness_utf8(s)
+    witness_libs(s)
+    witness_env(s)
+    witness_hook(s)
+    witness_engine(s)
+    witness_extras(s)
+    absorb_str(s, salt)
+    permute(s)
+    permute(s)
+    permute(s)
+    permute(s)
+    return s
+end
+
+local function squeeze(s, n)
+    local out = {}
+    for i = 1, n do
+        permute(s)
+        local lane = s[((i - 1) % 4) + 1]
+        out[i] = u32(lane) % 256
+    end
+    return out
+end
+
+local HEX = "0123456789abcdef"
+
+local function to_hex(bytes)
+    local parts = {}
+    for i = 1, #bytes do
+        local b = bytes[i] % 256
+        local hi = CAP.floor(b / 16)
+        local lo = b % 16
+        parts[i] = CAP.sub(HEX, hi + 1, hi + 1) .. CAP.sub(HEX, lo + 1, lo + 1)
+    end
+    return CAP.concat(parts)
+end
+
+local function normalize_salt(salt)
+    if salt == nil then
+        return ""
+    end
+    local t = CAP.type(salt)
+    if t == "string" then
+        return salt
+    end
+    if t == "number" then
+        if salt \~= salt or salt == CAP.huge or salt == -CAP.huge or salt % 1 \~= 0 then
+            CAP.error("Grok: numeric salt must be a finite integer", 0)
+        end
+        return CAP.tostring(salt)
+    end
+    CAP.error("Grok: salt must be a string or an integer", 0)
+end
+
+local function normalize_count(nbytes)
+    if nbytes == nil then
+        return 32
+    end
+    if CAP.type(nbytes) \~= "number" or nbytes \~= nbytes or nbytes < 1 or nbytes > 4096 or nbytes % 1 \~= 0 then
+        CAP.error("Grok: nbytes must be an integer from 1 to 4096", 0)
+    end
+    return nbytes
+end
+
+local function materialize(salt, nbytes)
+    local s = compute(normalize_salt(salt))
+    local seal_bytes = squeeze(s, 16)
+    local stream = squeeze(s, nbytes)
+    return to_hex(seal_bytes), stream
+end
+
+function Grok.Witness(id, fn)
+    if CAP.type(id) \~= "string" or id == "" then
+        CAP.error("Grok.Witness: id must be a non-empty string", 0)
+    end
+    if CAP.type(fn) \~= "function" then
+        CAP.error("Grok.Witness: fn must be a function", 0)
+    end
+    for i = 1, #extras do
+        if extras[i][1] == id then
+            CAP.error("Grok.Witness: duplicate id", 0)
+        end
+    end
+    local entry = { id, fn }
+    extras[#extras + 1] = entry
+    return function()
+        for i = 1, #extras do
+            if extras[i] == entry then
+                table.remove(extras, i)
+                return
+            end
+        end
+    end
+end
+
+function Grok.Seal(salt)
+    local hex = materialize(salt, 1)
+    return hex
+end
+
+function Grok.Stream(salt, nbytes)
+    nbytes = normalize_count(nbytes)
+    local _, stream = materialize(salt, nbytes)
+    return stream
+end
+
+function Grok.Capture(salt)
+    local hex, stream = materialize(salt, 32)
+    return {
+        seal = hex,
+        stream = stream,
+    }
+end
+
+function Grok.Unlock(salt, expect, nbytes)
+    if CAP.type(expect) \~= "string" or #expect == 0 then
+        CAP.error("Grok.Unlock: expect must be the hex seal from a clean capture", 0)
+    end
+    nbytes = normalize_count(nbytes)
+    local hex, stream = materialize(salt, nbytes)
+    if hex \~= expect then
+        return nil, nil, Grok.Reason.Mismatch
+    end
+    return stream, hex, Grok.Reason.Ok
+end
+
+local function key_byte(key, i)
+    local t = CAP.type(key)
+    if t == "string" then
+        local n = #key
+        if n == 0 then
+            return 0
+        end
+        return CAP.byte(key, ((i - 1) % n) + 1)
+    end
+    if t == "table" then
+        local n = #key
+        if n == 0 then
+            return 0
+        end
+        return u32(key[((i - 1) % n) + 1]) % 256
+    end
+    CAP.error("Grok.Xor: key must be a string or a byte array", 0)
+end
+
+function Grok.Xor(data, key)
+    if CAP.type(data) \~= "string" then
+        CAP.error("Grok.Xor: data must be a string", 0)
+    end
+    local out = {}
+    for i = 1, #data do
+        out[i] = CAP.char(bxor(CAP.byte(data, i), key_byte(key, i)))
+    end
+    return CAP.concat(out)
+end
+
+-- Tripwire only. A patcher can delete the compare. Prefer Stream/Xor.
+function Grok.Guard(fn, salt, expect)
+    if CAP.type(fn) \~= "function" then
+        CAP.error("Grok.Guard: fn must be a function", 0)
+    end
+    if CAP.type(expect) \~= "string" or #expect == 0 then
+        CAP.error("Grok.Guard: expect must be a hex seal", 0)
+    end
+    return function(...)
+        local hex = Grok.Seal(salt)
+        if hex \~= expect then
+            return
+        end
+        return fn(...)
+    end
+end
+
+function Grok.SelfTest()
+    if band_fb(0xFFFFFFFF, 0x0F0F0F0F) \~= 0x0F0F0F0F then
+        CAP.error("band fallback mismatch", 0)
+    end
+    if bxor_fb(0xFF00FF00, 0x0F0F0F0F) \~= 0xF00FF00F then
+        CAP.error("bxor fallback mismatch", 0)
+    end
+    if lshift_fb(1, 31) \~= 2147483648 then
+        CAP.error("lshift fallback mismatch", 0)
+    end
+    if rshift_fb(0x80000000, 1) \~= 0x40000000 then
+        CAP.error("rshift fallback mismatch", 0)
+    end
+    if rotl_fb(0x80000001, 1) \~= 3 then
+        CAP.error("rotl fallback mismatch", 0)
+    end
+    if rotl_fb(0xA1B2C3D4, 0) \~= u32(0xA1B2C3D4) then
+        CAP.error("rotl zero mismatch", 0)
+    end
+    if add32(0xFFFFFFFF, 2) \~= 1 then
+        CAP.error("add32 mismatch", 0)
+    end
+    if CAP.type(bit32lib) == "table" then
+        if band_fb(0xFF00FF00, 0x0F0F0F0F) \~= bit32lib.band(0xFF00FF00, 0x0F0F0F0F) then
+            CAP.error("band fallback disagrees with bit32", 0)
+        end
+        if bxor_fb(0xFF00FF00, 0x0F0F0F0F) \~= bit32lib.bxor(0xFF00FF00, 0x0F0F0F0F) then
+            CAP.error("bxor fallback disagrees with bit32", 0)
+        end
+        if rotl_fb(0xA1B2C3D4, 7) \~= bit32lib.lrotate(0xA1B2C3D4, 7) then
+            CAP.error("rotl fallback disagrees with bit32", 0)
+        end
+    end
+
+    local salt = "grok-selftest-salt"
+    local a = Grok.Seal(salt)
+    if CAP.type(a) \~= "string" or #a \~= 32 then
+        CAP.error("seal length", 0)
+    end
+    for _ = 1, 4 do
+        if Grok.Seal(salt) \~= a then
+            CAP.error("seal unstable", 0)
+        end
+    end
+    if Grok.Seal(salt .. "x") == a then
+        CAP.error("salt ignored", 0)
+    end
+
+    local stream = Grok.Stream(salt, 24)
+    if #stream \~= 24 then
+        CAP.error("stream length", 0)
+    end
+    local again = Grok.Stream(salt, 24)
+    for i = 1, 24 do
+        if stream[i] \~= again[i] then
+            CAP.error("stream unstable", 0)
+        end
+    end
+
+    local cipher = Grok.Xor("hello world!!!!!", stream)
+    if Grok.Xor(cipher, stream) \~= "hello world!!!!!" then
+        CAP.error("xor roundtrip", 0)
+    end
+    if cipher == "hello world!!!!!" then
+        CAP.error("xor noop", 0)
+    end
+
+    local unlocked, hex, reason = Grok.Unlock(salt, a, 24)
+    if reason \~= Grok.Reason.Ok or hex \~= a or unlocked == nil then
+        CAP.error("unlock rejected a live seal", 0)
+    end
+    for i = 1, 24 do
+        if unlocked[i] \~= stream[i] then
+            CAP.error("unlock stream diverged", 0)
+        end
+    end
+    local denied, denied_hex, denied_reason = Grok.Unlock(salt, "0123456789abcdef0123456789abcdef", 24)
+    if denied \~= nil or denied_hex \~= nil or denied_reason \~= Grok.Reason.Mismatch then
+        CAP.error("unlock accepted a bad seal", 0)
+    end
+
+    local calls = 0
+    local guarded = Grok.Guard(function(n)
+        calls = calls + n
+        return n, "ok"
+    end, salt, a)
+    local r1, r2 = guarded(4)
+    if r1 \~= 4 or r2 \~= "ok" or calls \~= 4 then
+        CAP.error("guard failed open on a good seal", 0)
+    end
+    local blocked = Grok.Guard(function()
+        calls = calls + 10
+        return "nope"
+    end, salt, "0123456789abcdef0123456789abcdef")
+    if blocked() \~= nil or calls \~= 4 then
+        CAP.error("guard failed closed", 0)
+    end
+
+    local old_byte = string.byte
+    string.byte = function(...)
+        return old_byte(...)
+    end
+    local hooked_ok, hooked_err = CAP.pcall(function()
+        if Grok.Seal(salt) == a then
+            CAP.error("identity witness missed a replaced string.byte", 0)
+        end
+    end)
+    string.byte = old_byte
+    if not hooked_ok then
+        CAP.error(hooked_err, 0)
+    end
+    if Grok.Seal(salt) \~= a then
+        CAP.error("seal did not recover after restoring string.byte", 0)
+    end
+
+    local remove = Grok.Witness("selftest-private", function()
+        return 997
+    end)
+    local with_private = Grok.Seal(salt)
+    remove()
+    if with_private == a then
+        CAP.error("private witness did not change the seal", 0)
+    end
+    if Grok.Seal(salt) \~= a then
+        CAP.error("removing the private witness did not restore the seal", 0)
+    end
+
+    return true
+end
+
+if CAP.type(_G) == "table" and CAP.rawget(_G, "GROK_SELFTEST") then
+    local ok, err = CAP.pcall(Grok.SelfTest)
+    if not ok then
+        CAP.error(err, 0)
+    end
+end
+
+return Grok
