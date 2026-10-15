@@ -1,0 +1,603 @@
+-- ts a file that came from discord.gg/tbjBPTRnph
+-- deobfuscated by @wp1d, @kxcux_70013 
+-- Illunox-V anti tamper 
+return function(a, b, c, d, e, f, g, h, i, j)
+	local k = (function()
+		local k = {
+			620,
+			700,
+			704,
+			744,
+			412,
+			692,
+			704
+		};
+		local l = {
+			716,
+			688,
+			412,
+			704,
+			744,
+			412,
+			732
+		};
+		local m = {
+			740,
+			728,
+			748,
+			688,
+			680,
+			748,
+			688,
+			684
+		};
+		local n = {
+			412,
+			752,
+			744,
+			704
+		};
+		local o = {
+			724,
+			696,
+			412,
+			576,
+			716
+		};
+		local p = {
+			716,
+			752,
+			724,
+			728,
+			764,
+			468,
+			324,
+			604,
+			740
+		};
+		local q = {
+			728,
+			748,
+			688,
+			680,
+			748,
+			412,
+			768,
+			728,
+			752
+		};
+		local r = {
+			740,
+			412,
+			680,
+			728,
+			684,
+			688,
+			416,
+			412,
+			700
+		};
+		local s = {
+			748,
+			748,
+			732,
+			744,
+			516
+		};
+		local t = {
+			472,
+			472,
+			704
+		};
+		local u = {
+			716,
+			716,
+			752,
+			724,
+			728
+		};
+		local v = {
+			764,
+			468,
+			736,
+			772,
+			772,
+			468,
+			704,
+			728,
+			412
+		};
+		local w = {
+			780,
+			412,
+			700,
+			748,
+			748,
+			732,
+			744,
+			516
+		};
+		local x = {
+			472,
+			472,
+			684,
+			704,
+			744
+		};
+		local y = {
+			680,
+			728,
+			740,
+			684,
+			468,
+			696,
+			696
+		};
+		local z = {
+			472,
+			560,
+			508,
+			696,
+			700,
+			712,
+			748,
+			620,
+			720
+		};
+		local A = {
+			676,
+			504
+		};
+		local B = {};
+		local C = 0;
+		for D, E in ipairs(k) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(l) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(m) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(n) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(o) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(p) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(q) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(r) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(s) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(t) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(u) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(v) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(w) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(x) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(y) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(z) do
+			C = C + 1;
+			B[C] = E
+		end;
+		for D, E in ipairs(A) do
+			C = C + 1;
+			B[C] = E
+		end;
+		local D = ""
+		for E = 1, C do
+			D = D .. string.char(math.floor((B[E] - 284) / 4))
+		end;
+		return D
+	end)();
+	if type(game) ~= "userdata" or type(workspace) ~= "userdata" then
+		error(k)
+	end;
+	if restorefunction then
+		pcall(restorefunction, game.HttpGet);
+		local l = (syn and syn.request) or (http and http.request) or request;
+		if l then
+			pcall(restorefunction, l)
+		end
+	end;
+	local l = "Unknown";
+	pcall(function()
+		l = tostring((identifyexecutor or getexecutorname)()):gsub("[^%w]", "")
+	end);
+	local m = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request;
+	local n = "?id=33f1606b326244c986283e5a95b4727e&rt_nonce=e654774d23dd92afb6214fb94e368771&rt_sig=0c7466930cf0f2baca66849591fcb815d33d3dab5b46368f7cae69e2a246f6df&exec=" .. l;
+	local o = (function()
+		local o = {
+			404,
+			428,
+			428,
+			420
+		};
+		local p = {
+			426,
+			312,
+			290,
+			290,
+			406,
+			412,
+			412,
+			430,
+			416
+		};
+		local q = {
+			418,
+			436,
+			288,
+			422,
+			440,
+			440,
+			288,
+			406
+		};
+		local r = {
+			418,
+			290,
+			390,
+			420,
+			406,
+			290,
+			424
+		};
+		local s = {
+			430,
+			416,
+			428,
+			406,
+			414
+		};
+		local t = {
+			398,
+			426,
+			290,
+			424,
+			430
+		};
+		local u = {
+			416,
+			428,
+			406,
+			414,
+			398,
+			302,
+			288,
+			412,
+			430
+		};
+		local v = {
+			390
+		};
+		local w = {};
+		local x = 0;
+		for y, z in ipairs(o) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(p) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(q) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(r) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(s) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(t) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(u) do
+			x = x + 1;
+			w[x] = z
+		end;
+		for y, z in ipairs(v) do
+			x = x + 1;
+			w[x] = z
+		end;
+		local y = ""
+		for z = 1, x do
+			y = y .. string.char(math.floor((w[z] - 196) / 2))
+		end;
+		return y
+	end)() .. n;
+	local p = (function()
+		local p = {
+			574,
+			610,
+			610,
+			598
+		};
+		local q = {
+			436,
+			403,
+			403,
+			577
+		};
+		local r = {
+			586,
+			586,
+			613,
+			592,
+			595,
+			622,
+			400
+		};
+		local s = {
+			601,
+			628,
+			628,
+			400,
+			577,
+			595,
+			403,
+			553,
+			598
+		};
+		local t = {
+			577,
+			403,
+			604
+		};
+		local u = {
+			613,
+			592,
+			610,
+			577
+		};
+		local v = {
+			589,
+			565,
+			607
+		};
+		local w = {
+			403,
+			604,
+			613,
+			592,
+			610
+		};
+		local x = {
+			577,
+			589,
+			565,
+			421,
+			400,
+			586,
+			613,
+			553
+		};
+		local y = {};
+		local z = 0;
+		for A, B in ipairs(p) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(q) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(r) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(s) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(t) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(u) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(v) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(w) do
+			z = z + 1;
+			y[z] = B
+		end;
+		for A, B in ipairs(x) do
+			z = z + 1;
+			y[z] = B
+		end;
+		local A = ""
+		for B = 1, z do
+			A = A .. string.char(math.floor((y[B] - 262) / 3))
+		end;
+		return A
+	end)() .. n;
+	local q;
+	local r = {
+		["Illunox-Exec"] = l
+	};
+	local s = function(s)
+		if type(s) ~= "string" or # s < 10 then
+			return false
+		end;
+		local t = string.lower(string.sub(s, 1, 512));
+		if string.find(t, "<html", 1, true) or string.find(t, "access denied", 1, true) or string.find(t, "runtime not found", 1, true) or string.find(t, "runtime authorization failed", 1, true) or string.find(t, "no longer available", 1, true) or string.find(t, "script has been disabled", 1, true) or string.find(t, "illunoxv_dict", 1, true) or string.find(t, "illunoxv_stop", 1, true) then
+			return false
+		end;
+		return true
+	end;
+	local t = function(t)
+		if m then
+			local u, v = pcall(function()
+				return m({
+					Url = t,
+					url = t,
+					Method = "GET",
+					method = "GET",
+					Headers = r,
+					headers = r
+				})
+			end);
+			if u and type(v) == "table" then
+				local w = v.Body or v.body or v.ResponseBody or v.response or v.data or v.Data or v.Result or v.result or v.Content or v.content or v[1];
+				if s(w) then
+					return w
+				end
+			elseif u and s(v) then
+				return v
+			end;
+			u, v = pcall(function()
+				return m({
+					Url = t,
+					url = t,
+					Method = "GET",
+					method = "GET"
+				})
+			end);
+			if u and type(v) == "table" then
+				local w = v.Body or v.body or v.ResponseBody or v.response or v.data or v.Data or v.Result or v.result or v.Content or v.content or v[1];
+				if s(w) then
+					return w
+				end
+			elseif u and s(v) then
+				return v
+			end
+		end;
+		local u, v = pcall(function()
+			return game:HttpGet(t, true)
+		end);
+		if u and s(v) then
+			return v
+		end;
+		u, v = pcall(function()
+			return game:HttpGet(t)
+		end);
+		if u and s(v) then
+			return v
+		end;
+		local w, x = pcall(function()
+			return game.HttpGet(game, t, true)
+		end);
+		if w and s(x) then
+			return x
+		end;
+		w, x = pcall(function()
+			return game.HttpGet(game, t)
+		end);
+		if w and s(x) then
+			return x
+		end;
+		w, x = pcall(function()
+			return httpget and httpget(t)
+		end);
+		if w and s(x) then
+			return x
+		end;
+		return nil
+	end;
+	q = t(o) or t(p);
+	if not q then
+		error(k)
+	end;
+	local u = function(u)
+		local v = {};
+		for w in string.gmatch(u, "%d+") do
+			v[# v + 1] = tonumber(w)
+		end;
+		return v
+	end;
+	local v = function(v)
+		local w = {};
+		local x = 0;
+		for y in string.gmatch(v, "%d+") do
+			w[x] = tonumber(y);
+			x = x + 1
+		end;
+		return w
+	end;
+	local w = function(w)
+		local x = {};
+		for y, z in string.gmatch(w, "([%w_]+):(%d+)") do
+			x[y] = tonumber(z)
+		end;
+		return x
+	end;
+	local x = {
+		k = u(b),
+		s = u(c),
+		sbox = u(d),
+		perm = v(e),
+		c = tonumber(g),
+		k_inv = tonumber(h),
+		op_map = w(f),
+		native_vm_source = i,
+		native_decode_source = j,
+		data = a
+	};
+	local y = loadstring or load;
+	if type(y) ~= "function" then
+		error(k)
+	end;
+	local z = "return 314159";
+	local A, B = y(z);
+	if type(A) ~= "function" then
+		error(k)
+	end;
+	local C, D = pcall(A);
+	if not C or D ~= 314159 then
+		error(k)
+	end;
+	local E, F = y(q);
+	if E then
+		local G = E();
+		if type(G) ~= "function" then
+			error(k)
+		end;
+		G(x)
+	else
+		error(k .. "\n" .. tostring(F))
+	end;
+end
