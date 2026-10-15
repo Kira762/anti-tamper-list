@@ -1,0 +1,899 @@
+local band = bit32.band
+local bxor = bit32.bxor
+local bor = bit32.bor
+local lshift = bit32.lshift
+local rshift = bit32.rshift
+
+local function xorshift32(a)
+        a = band(a, 4294967295)
+        a = bxor(a, lshift(a, 13))
+        a = bxor(a, rshift(a, 17))
+        a = bxor(a, lshift(a, 5))
+        return band(a, 4294967295)
+end
+
+local function mix2(fM, P)
+        local Wi = band(685710331 + fM * 34141 + (fM % 251) * 23047, 4294967295)
+        local Lz = band(P * 16843009, 4294967295)
+        Wi = bxor(Wi, Lz)
+        Wi = bxor(Wi, lshift(Wi, 13))
+        Wi = bxor(Wi, rshift(Wi, 17))
+        Wi = bxor(Wi, lshift(Wi, 5))
+        return band(Wi, 4294967295)
+end
+
+local function probeMetatableLock()
+        local getmetatable = getfenv()["getmetatable"]
+        local reported = getmetatable(string.char())
+        if reported ~= "The metatable is locked" then
+                return 196
+        end
+        return 171
+end
+
+local function probeNativeStringByte()
+        local ok, result = pcall(setfenv, string.byte, getfenv(string.byte))
+        if ok or result ~= "'setfenv' cannot change environment of given object" then
+                return 196
+        end
+        return 171
+end
+
+local function probeTracebackRepetition()
+        local debugLib = getfenv(0)["debug"]
+        local marker = string.char(82, 72, 75, 77, 79)
+        local function recurse(depth)
+                if depth == 0 then
+                        return debugLib["traceback"](marker)
+                end
+                return recurse(depth - 1)
+        end
+        local trace = recurse(2)
+        local counts = {}
+        for digits in string.gmatch(trace, ":(%d+)[^\n]*") do
+                local line = tonumber(digits)
+                if line ~= nil then
+                        counts[line] = (counts[line] or 0) + 1
+                        if counts[line] > 2 then
+                                return 57
+                        end
+                end
+        end
+        return 31
+end
+
+local function probeBuiltinSanity()
+        local xorProbe = bxor(26864, 13230)
+        local roundtrip = string.byte(string.char(94), 1, 1)
+        local arity = select("#", 23390, 94, 23390)
+        if xorProbe == 23390 and roundtrip == 94 and arity == 3 then
+                return 63
+        end
+        return bxor(63, 103)
+end
+
+local function runEnvironmentProbes()
+        local jD = probeMetatableLock()
+        if jD == 171 then
+                jD = probeNativeStringByte()
+        end
+        local uE = probeTracebackRepetition()
+        local sG = probeBuiltinSanity()
+        return jD, uE, sG
+end
+
+local function computeVerdict(lockResult, traceResult, secondaryResult)
+        return band(
+                bor(
+                        bxor(tonumber(lockResult) or 0, 171),
+                        bor(
+                                bxor(tonumber(traceResult) or 0, 57),
+                                bxor(tonumber(secondaryResult) or 0, 63)
+                        )
+                ),
+                255
+        )
+end
+
+local function deriveSessionKey(jD, uE, sG)
+        local gj = band(jD * 45 + uE * 95 + sG * 121 + 71, 255)
+        local kq = band(
+                bxor(
+                        bxor(lshift(jD, 5), rshift(uE, 2)),
+                        lshift(sG, 1)
+                ),
+                255
+        )
+        local ut = band(
+                bor(
+                        bxor(jD, 171),
+                        bor(bxor(uE, 57), bxor(sG, 63))
+                ),
+                255
+        )
+        local kh = band(bxor(bxor(gj, kq), 225) + ut, 255)
+        return kh, ut
+end
+
+local function decodeName(bytes, key)
+        local out = {}
+        for i = 1, #bytes do
+                out[i] = string.char(band(bxor(bytes[i], key), 255))
+        end
+        return table.concat(out)
+end
+
+local function decryptString(key, bytes)
+        local a = band(lshift(42, 2), 65535)
+        local b = rshift(a, 1)
+        if bxor(a, b) ~= 252 then
+                return nil
+        end
+        local out = ""
+        for i = 1, #bytes do
+                out = out .. string.char(band(bxor(bytes[i], key), 255))
+        end
+        return out
+end
+
+local function getBlob(holder)
+        local nj = band(169, 51777)
+        local hr = bxor(nj, 169)
+        if bxor(nj, hr) ~= 169 then
+                return nil
+        end
+        return holder[1]
+end
+
+local function decodeBase85(chunk, alphabet)
+        local Dg = {}
+        for i = 1, #alphabet do
+                Dg[string.sub(alphabet, i, i)] = i - 1
+        end
+        local groups = #chunk // 5
+        local out = buffer.create(groups * 4)
+        for g = 0, groups - 1 do
+                local d = {}
+                for j = 0, 4 do
+                        local ch = string.sub(chunk, 5 * g + j + 1, 5 * g + j + 1)
+                        d[j] = (Dg[ch] - ((5 * g + j) * 41) % 85) % 85
+                end
+                local n = ((((d[1] * 85 + d[3]) * 85 + d[4]) * 85 + d[2]) * 85 + d[0]) % 4294967296
+                buffer.writeu32(out, g * 4, n)
+        end
+        return out, groups * 4
+end
+
+local function assembleCodeBuffer(headerKey, chunkTable, indexStream, seedKey, alphabet)
+        local code = buffer.create(9336)
+        local offset = 0
+        local rolling = seedKey
+        for i = 1, #indexStream do
+                local index = bxor(
+                        bxor(indexStream[i], 40),
+                        bxor((172 + i * 173 + (i % 251) * 24) % 256, headerKey)
+                )
+                local chunk = bxor(index, rolling)
+                rolling = band(rolling + chunk * 211 + i * 194, 255)
+                indexStream[i] = nil
+                if chunk > #chunkTable then
+                        chunk = chunk - #chunkTable
+                end
+                local entry = chunkTable[chunk]
+                if entry == nil then
+                        return nil
+                end
+                local decoded, size = decodeBase85(entry, alphabet)
+                buffer.copy(code, offset, decoded, 0, size)
+                offset = offset + size
+        end
+        return code
+end
+
+local function descrambleSwapXor(code, sessionKey)
+        local n = 0
+        while n + 1 < 9336 do
+                local a = bxor(buffer.readu8(code, n), (sessionKey + 1919273834 + (n + 1) * 31035) % 256)
+                local b = bxor(buffer.readu8(code, n + 1), (sessionKey + 1919273834 + (n + 2) * 31035) % 256)
+                buffer.writeu8(code, n, b)
+                buffer.writeu8(code, n + 1, a)
+                n = n + 2
+        end
+        return xorshift32(sessionKey + 1792098631 + 24827)
+end
+
+local function deriveKeystreamTable(seedTable, kh)
+        local nQ = band(kh * 17 + 1, 255)
+        local eB = band(kh * 31 + 1, 255)
+        local LE = {}
+        for i = 1, #seedTable do
+                LE[i] = band(bxor(bxor(seedTable[i], 40), band(kh + i * nQ + (i % 251) * eB, 255)), 255)
+        end
+        local hu = bxor(146, band(kh + 253 * nQ + (253 % 251) * eB, 255))
+        local aq = bxor(150, band(kh + 254 * nQ + (254 % 251) * eB, 255))
+        local Hr = bxor(85, band(kh + 255 * nQ + (255 % 251) * eB, 255))
+        return LE, hu, aq, Hr
+end
+
+local function descrambleKeyStream(code, LE, hu, aq, Hr, nW)
+        local ue = #LE
+        for i = 0, 9335 do
+                local gr = (i % ue) + 1
+                local na = i + 1
+                local ud = (hu + na * aq + (na % 251) * Hr) % 256
+                local qs = bxor(LE[gr], ud)
+                local v = bxor(buffer.readu8(code, i), (nW + 1463987739 + na * 11506) % 256)
+                buffer.writeu8(code, i, bxor(v, qs))
+        end
+        return xorshift32(nW + 1850069598 + 112710)
+end
+
+local function descrambleRotate(code, sessionKey)
+        for i = 0, 9335 do
+                local uo = bxor(buffer.readu8(code, i), (sessionKey + 1713177291 + (i + 1) * 27938) % 256)
+                buffer.writeu8(code, i, band(bor(rshift(uo, 3), lshift(uo, 5)), 255))
+        end
+        return xorshift32(sessionKey + 2131166046 + 116694)
+end
+
+local function extractPayload(buf)
+        local pos = 4
+        while pos < 8364 do
+                local tag = buffer.readu8(buf, pos)
+                pos = pos + 1
+                if tag == 3 then
+                        pos = pos + 1
+                elseif tag == 238 then
+                        pos = pos + 1 + buffer.readu8(buf, pos)
+                elseif tag == 154 then
+                        local len = buffer.readu32(buf, pos)
+                        pos = pos + 4
+                        if len ~= 8188 then
+                                return nil
+                        end
+                        local out = buffer.create(len)
+                        buffer.copy(out, 0, buf, pos, len)
+                        return out
+                else
+                        return nil
+                end
+        end
+        return nil
+end
+
+local function makePermutation(kh)
+        local ZO = bxor(3185490210, mix2(58, kh)) % 9336
+        local cl = bxor(1286092070, mix2(382, kh)) % 9336
+        return function(F)
+                return ((F - 1) * ZO + cl) % 9336
+        end
+end
+
+local function makeStreamReader(frame)
+        return function()
+                local OM = frame.fX
+                local cE = buffer.readu8(frame.Fr, OM - 1)
+                local hh = frame.TY
+                local of = band(hh + 1406318100 + OM * 56314, 4294967295)
+                of = bxor(of, 1759978801)
+                of = bxor(of, lshift(of, 13))
+                of = bxor(of, rshift(of, 17))
+                of = bxor(of, lshift(of, 5))
+                of = band(of, 4294967295)
+                local tm = band(bxor(bxor(bxor(of, rshift(of, 8)), rshift(of, 16)), rshift(of, 24)), 255)
+                local NE = band(bor(rshift(cE, 6), lshift(cE, 2)), 255) - 214
+                if NE < 0 then
+                        NE = NE + 256
+                end
+                local TS = bxor(NE, tm)
+                local gM = band(hh * 40849 + 975607815 + OM * 32609 + TS * 25579 + cE * 45786, 4294967295)
+                gM = bxor(gM, lshift(gM, 13))
+                gM = bxor(gM, rshift(gM, 17))
+                gM = bxor(gM, lshift(gM, 5))
+                frame.TY = gM
+                frame.fX = OM + 1
+                return TS
+        end
+end
+
+local function decodeProgram(kh, encryptedBlob, alphabet, seedTable)
+        local body = string.sub(encryptedBlob, 13)
+        local zz = bxor(3476488477, xorshift32(bxor(band(kh * 16843009, 4294967295), 3861205832)))
+        local code, size = decodeBase85(body, alphabet)
+        if code == nil or size ~= 9336 then
+                return nil
+        end
+        local gn = descrambleSwapXor(code, zz)
+        local LE, hu, aq, Hr = deriveKeystreamTable(seedTable, kh)
+        local ds = descrambleKeyStream(code, LE, hu, aq, Hr, gn)
+        descrambleRotate(code, ds)
+        local offsetOf = makePermutation(kh)
+        local secondary = buffer.create(8364)
+        for uX = 1, 8364 do
+                buffer.writeu8(secondary, uX - 1, buffer.readu8(code, offsetOf(972 + uX)))
+        end
+        local payload = extractPayload(secondary)
+        return payload, zz
+end
+
+local function makeFrame(payload, kh)
+        return {
+                Fr = payload,
+                fX = 1,
+                yd = buffer.create(8),
+                TY = bxor(4279123548, band(kh * 16843009, 4294967295)),
+        }
+end
+
+local function captureSetfenv(vmTable)
+        vmTable[545] = getfenv()[string.char(115, 101, 116, 102, 101, 110, 118)]
+        if vmTable[913] == nil then
+                vmTable[913] = {}
+        end
+        for byte = 0, 255 do
+                vmTable[913][byte] = string.char(byte)
+        end
+end
+
+local function buildSandboxProxy(realEnvironment, vmTable)
+        local proxy = {
+                sk = 11688,
+                Ok = 41578,
+                YP = 1310,
+                Ca = 50725,
+                nu = vmTable[503],
+                fz = vmTable[966],
+        }
+        proxy._G = proxy
+        proxy._ENV = proxy
+        vmTable[966] = nil
+        vmTable[503] = nil
+        setmetatable(proxy, {
+                __index = realEnvironment,
+                __newindex = function(tbl, key, value)
+                        if rawget(realEnvironment, key) ~= nil then
+                                rawset(tbl, key, value)
+                        else
+                                realEnvironment[key] = value
+                        end
+                end,
+        })
+        return proxy
+end
+
+local function buildSnapshotEnvironment(vmTable)
+        return {
+                G = string.byte,
+                f = string.char,
+                d = string.sub,
+                I = table.concat,
+                e = setmetatable,
+                J = vmTable[972],
+                c = getfenv,
+                T = select,
+                t = unpack,
+                E = tonumber,
+                F = function(value)
+                        return value - value % 1
+                end,
+        }
+end
+
+local function installPayloadEnvironment(vmTable, closureFactory)
+        local realEnvironment = getfenv(0)
+        local proxy = buildSandboxProxy(realEnvironment, vmTable)
+        local snapshot = buildSnapshotEnvironment(vmTable)
+        setmetatable(snapshot, { __index = proxy })
+        vmTable[545](closureFactory, snapshot)
+        return proxy
+end
+
+local function makeGuardedAccessor(payloadFunction, secretKey)
+        local lockedKey = secretKey
+        return function(presentedKey)
+                if presentedKey ~= lockedKey then
+                        return nil
+                end
+                return payloadFunction
+        end
+end
+
+local function releasePayload(vmTable, guardedAccessor, masterKey)
+        local payload = guardedAccessor(masterKey)
+        vmTable[1683] = nil
+        vmTable[151] = nil
+        return payload
+end
+
+local function makeReferenceHolder()
+        return {
+                [33] = error,
+                [132] = nil,
+                [161] = (61 * 370899 + 11901509) % 16777216,
+                [313] = select,
+                [240] = type,
+        }
+end
+
+local function tamperResponse(referenceHolder)
+        local storedError = referenceHolder[33]
+        if storedError == error then
+                return storedError(31270, 0)
+        end
+        return storedError(error, 31270, 0)
+end
+
+local function wipeRuntimeState(state)
+        state[33] = nil
+        state[132] = nil
+        state[161] = nil
+        state[240] = nil
+        state[313] = nil
+        state[386] = nil
+        return state
+end
+
+local function sabotageOnProbeFailure(vmTable, chunkTable, deviation)
+        local slot = band(deviation + 34, 255) + 1
+        local poison = bxor(deviation, 54410)
+        local junkA = { [slot] = poison }
+        local junkB = { #chunkTable + slot + poison }
+        local junkC = { { [slot] = chunkTable }, false, poison, {} }
+        vmTable[1683] = { [slot] = chunkTable }
+        vmTable[661] = { [slot] = poison }
+        vmTable[242] = chunkTable
+        vmTable[1549] = { #chunkTable + slot + poison, { [slot] = chunkTable } }
+        vmTable[1810] = { { {}, false, poison, {} }, { [slot] = chunkTable } }
+        vmTable[1236] = junkA
+        vmTable[712] = function(...)
+                return vmTable[661](...)
+        end
+        return poison
+end
+
+local function hangForever()
+        local sink = nil
+        while true do
+                sink = { sink }
+        end
+end
+
+local function onTamperDetected(vmTable, referenceHolder, chunkTable, deviation)
+        tamperResponse(referenceHolder)
+        sabotageOnProbeFailure(vmTable, chunkTable, deviation)
+        hangForever()
+end
+
+local function encodeInstruction(opcode, operandA, operandB, flags, extra, nonce)
+        local rec = {}
+        rec[1] = opcode + nonce + 53427
+        rec[2] = (extra or -11665) + nonce + 7772
+        rec[3] = bxor(
+                band(52395 + opcode * 213 + operandA * 161 + (operandB or 60756) * 63 + (extra or 57882) * 61 + flags * 147 + nonce * 135, 65535),
+                band(nonce + 61452, 65535)
+        )
+        rec[4] = extra and extra + nonce + 30280 or nil
+        rec[9] = operandA + nonce + 16563
+        rec[10] = operandB and operandB + nonce + 49688 or nil
+        rec[11] = bxor(nonce, 28050)
+        rec[12] = flags + nonce + 12799
+        return rec
+end
+
+local function verifyInstruction(instruction)
+        local rec = instruction[32]
+        if not rec then
+                return instruction[1] ~= nil or instruction[104] ~= nil
+        end
+        local nonce = bxor(rec[11], 28050)
+        local opcode = rec[1] - nonce - 53427
+        local operandA = rec[9] - nonce - 16563
+        local operandB = rec[10] and rec[10] - nonce - 49688 or 60756
+        local extra = rec[4] and rec[4] - nonce - 30280 or 57882
+        local flags = (rec[12] or (nonce + 12799)) - nonce - 12799
+        local stored = bxor(rec[3] or 0, band(nonce + 61452, 65535))
+        local recomputed = band(52395 + opcode * 213 + operandA * 161 + operandB * 63 + extra * 61 + flags * 147 + nonce * 135, 65535)
+        return stored == recomputed
+end
+
+local function decodeAndVerifyInstruction(instruction)
+        local rec = instruction[32]
+        if not rec then
+                return instruction
+        end
+        if not verifyInstruction(instruction) then
+                return nil
+        end
+        local nonce = bxor(rec[11], 28050)
+        if instruction[1] == nil then
+                instruction[1] = rec[1] - nonce - 53427
+        end
+        local flags = (rec[12] or (nonce + 12799)) - nonce - 12799
+        instruction[2] = rec[9] - nonce - 16563
+        if rec[10] then
+                instruction[3] = rec[10] - nonce - 49688
+        end
+        if rec[4] then
+                instruction[4] = rec[4] - nonce - 30280
+        end
+        instruction[151] = band(nonce + (rec[1] or 0) * 241 + (rec[9] or 0) * 123 + flags * 55 + 17417, 65535)
+        instruction[32] = nil
+        return instruction
+end
+
+local function reencodeFunctionOpcodes(fn)
+        if fn[7] then
+                return fn
+        end
+        fn[7] = true
+        local instructions = fn[1]
+        local seed = (#instructions * 36 + (fn[3] or 0) * 46 + #fn * 31) % 256
+        fn[8] = seed
+        for index = 1, #instructions do
+                local ins = instructions[index]
+                local opcode = ins[1]
+                local parity = (index * 46 + opcode * 31 + (#instructions + 1) * 24253) % 2
+                local ps = (index * 96 + opcode * 36 + (#instructions + 1) * 65036) % 256
+                local rt = ((opcode * 31 + index * 46 + #instructions + seed) % 255) + 1
+                local pg = (ps + rt) % 256
+                ins[5] = ps
+                ins[7] = rt
+                if parity == 0 then
+                        ins[1] = 66773
+                        ins[6] = bxor(opcode, pg)
+                else
+                        ins[1] = 71040
+                        ins[6] = (opcode + pg) % 256
+                end
+        end
+        return fn
+end
+
+local function decodeSyntheticOpcode(ins)
+        if ins[1] == 66773 then
+                return bxor(ins[6] or 0, ((ins[5] or 0) + (ins[7] or 0)) % 256)
+        elseif ins[1] == 71040 then
+                return ((ins[6] or 0) - ((ins[5] or 0) + (ins[7] or 0)) % 256) % 256
+        end
+        return ins[1]
+end
+
+local function remapThroughPool(raw, pools)
+        local selector = raw % 4
+        local entry = pools[selector]
+        if not entry then
+                return nil
+        end
+        local byte = string.byte(entry.string, (raw - selector) / 4 + 1)
+        if not byte then
+                return nil
+        end
+        local value = byte - entry.bias
+        if value < 0 then
+                value = value + 256
+        end
+        return value
+end
+
+local function decodeOpcode(node, opcodePools)
+        local raw = node[1]
+        if raw == 66773 then
+                raw = bxor(bxor(node[6] or 0, node[7] or 0), band((node[5] or 0) + (node[7] or 0), 255))
+        elseif raw == 71040 then
+                raw = (node[6] - band((node[5] or 0) + (node[7] or 0), 255)) % 256
+        end
+        local remapped = remapThroughPool(raw, opcodePools)
+        if remapped then
+                return remapped
+        end
+        return raw
+end
+
+local function buildLabelDescriptor(node, opcode, a, b, c, flags, aux, aux2, link)
+        local iY = band(45090 + link * 15 + aux * 132 + aux2 * 245, 65535)
+        node[32] = {
+                opcode + iY + 53427,
+                (c or -11665) + iY + 7772,
+                bxor(
+                        band(52395 + opcode * 213 + b * 161 + (a or 60756) * 63 + (c or 57882) * 61 + flags * 147 + iY * 135, 65535),
+                        band(iY + 61452, 65535)
+                ),
+                c and c + iY + 30280,
+                band(iY + 173, 255),
+                band(iY + 204, 255),
+                link,
+                band(iY + 115, 255),
+                b + iY + 16563,
+                a and a + iY + 49688,
+                bxor(iY, 28050),
+                flags + iY + 12799,
+        }
+        return node
+end
+
+local function verifyLabelDescriptor(node)
+        local t = node[32]
+        if not t then
+                return node[1] ~= nil or node[104] ~= nil
+        end
+        local key = bxor(t[11], 28050)
+        local opcode = t[1] - key - 53427
+        local a = t[9] - key - 16563
+        local b = t[10] and t[10] - key - 49688 or 60756
+        local c = t[4] and t[4] - key - 30280 or 57882
+        local flags = (t[12] or key + 12799) - key - 12799
+        local stored = bxor(t[3] or 0, band(key + 61452, 65535))
+        local computed = band(52395 + opcode * 213 + a * 161 + b * 63 + c * 61 + flags * 147 + key * 135, 65535)
+        return stored == computed
+end
+
+local registry = {}
+local pending = {}
+
+local function checksumModule(module, keyA, keyB)
+        local instructions = module[1]
+        if type(instructions) ~= "table" then
+                return nil
+        end
+        local acc = 1403030849 + keyA * 26291 + keyB * 25363 + (#instructions + 1) * 9123
+        for i = 1, #instructions do
+                local rec = instructions[i][32]
+                if not rec then
+                        return nil
+                end
+                acc = bxor(acc, rec[3] or 0) + (rec[11] or 0) * 21449 + i * 56509 + (rec[2] or 1744) * 64671
+        end
+        return band(bxor(acc, (module[5] or 0) * 52127) + (module[3] or 0) * 14173, 4294967295)
+end
+
+local function commitModule(module, keyA, keyB, handle, token)
+        local checksum = checksumModule(module, keyA, keyB)
+        if checksum == nil then
+                return nil
+        end
+        module[475] = bxor(keyA, 540841016)
+        module[408] = bxor(keyB, 1115371541)
+        module[354] = bxor(checksum, band(1747677602 + keyA * 62773 + keyB * 11659, 4294967295))
+        if pending[handle] ~= token then
+                return nil
+        end
+        pending[handle] = nil
+        registry[module] = { bxor(module[354], 2269905765), module[5] or 0 }
+        return module
+end
+
+local function verifyModule(module)
+        if type(module) ~= "table" then
+                return false
+        end
+        local keyA = bxor(module[475] or 0, 540841016)
+        local keyB = bxor(module[408] or 0, 1115371541)
+        local stored = module[354]
+        local instructions = module[1]
+        if type(instructions) ~= "table" or type(stored) ~= "number" then
+                return false
+        end
+        if keyA < 0 or keyB < 0 or stored == 0 then
+                return false
+        end
+        local entry = registry[module]
+        if entry == nil or entry[1] ~= bxor(stored, 2269905765) or entry[2] ~= (module[5] or 0) then
+                return false
+        end
+        return verifyInstruction(instructions[1]) and verifyInstruction(instructions[#instructions])
+end
+
+local PROTO_MAGIC = 1607585654
+
+local function decodeProto(store, index, deserialize)
+        local raw = store[index]
+        if type(raw) ~= "table" or raw[226] ~= PROTO_MAGIC then
+                return raw
+        end
+        local base = raw[5]
+        local start = raw[3] - base
+        local length = raw[4] - base
+        local ctx = { Fr = raw[1], fX = start, yd = buffer.create(8), vR = true }
+        local decoded = deserialize(ctx, raw[2], raw[6])
+        if ctx.fX ~= start + length then
+                return nil
+        end
+        raw[1] = nil
+        store[index] = decoded
+        return decoded
+end
+
+local challengeLedger = {}
+
+local function mintChallengeToken(constantBytes, context, ydValue)
+        if #constantBytes ~= 6 then
+                return constantBytes
+        end
+        local b1 = string.byte(constantBytes, 1, 1)
+        local b2 = string.byte(constantBytes, 2, 2)
+        local b3 = string.byte(constantBytes, 3, 3)
+        local b4 = string.byte(constantBytes, 4, 4)
+        local b5 = string.byte(constantBytes, 5, 5)
+        local b6 = string.byte(constantBytes, 6, 6)
+        local first = b3 * 256 + b4
+        local second = b5 * 256 + b6
+        if first == (b1 * 169 + b2 + 40143) % 65536 and second == (b2 * 47 + b1 + 20997) % 65536 then
+                local bc = band(context, 255)
+                local rk = (bc * 243 + ydValue + 237) % 256
+                local token = string.char(bxor(b1, bc)) .. string.char(bxor(b2, rk)) .. string.char(bc) .. string.char(ydValue) .. string.char(rk)
+                challengeLedger[token] = true
+                return token
+        end
+        return constantBytes
+end
+
+local function installChallengeGlobal(secret)
+        getfenv(0)["HX"] = function(eR, wT, mq, HS, Ow, Zf, fF, Si)
+                local c3 = string.byte(Si, 3, 3)
+                local c4 = string.byte(Si, 4, 4)
+                local c5 = string.byte(Si, 5, 5)
+                if not c3 or not c4 or not c5 or c5 ~= (c3 * 243 + c4 + 237) % 256 then
+                        return bxor(secret, 253)
+                end
+                local counter = challengeLedger[1226908804]
+                if counter == nil or counter <= 0 or challengeLedger[Si] == nil then
+                        return bxor(secret, 253)
+                end
+                local th = (string.byte(eR, 1, 1) * 73 + string.byte(eR, 2, 2) * 151 + wT * 29 + mq * 17 + (HS % 256) * 11 + Ow * 7 + Zf * 37 + fF * 53 + 165) % 256
+                return bxor(secret, th)
+        end
+end
+
+local callDepth = 0
+
+local function protectedCall(fn, ...)
+        callDepth = callDepth + 1
+        local results = table.pack(pcall(fn, ...))
+        callDepth = callDepth - 1
+        if not results[1] then
+                error(results[2], 0)
+        end
+        return table.unpack(results, 2, results.n)
+end
+
+local function runFrame(frame, nodeGraph, firstNode, opcodePools)
+        local d = firstNode
+        local registers = frame.registers
+        while true do
+                local n = nodeGraph[d]
+                if n[32] then
+                        if not verifyLabelDescriptor(n) then
+                                return nil
+                        end
+                end
+                local opcode = n[104]
+                if not opcode then
+                        opcode = decodeOpcode(n, opcodePools)
+                        n[104] = opcode
+                end
+                if opcode == 510 then
+                        if registers[n[2]] ~= n[4] then
+                                d = nodeGraph[d][185]
+                        else
+                                d = n[3]
+                        end
+                        continue
+                elseif opcode == 533 then
+                        local base = n[2]
+                        local results = table.pack(registers[base](registers[base + 1]))
+                        local top = results.n + base - 1
+                        local j = 0
+                        for r = base, top do
+                                j = j + 1
+                                registers[r] = results[j]
+                        end
+                        d = nodeGraph[d][185]
+                        continue
+                elseif opcode == 526 then
+                        return
+                end
+                d = nodeGraph[d][185]
+        end
+end
+
+local function bootstrap(vmTable)
+        vmTable[545] = getfenv()[string.char(115, 101, 116, 102, 101, 110, 118)]
+        if vmTable[913] == nil then
+                vmTable[913] = {}
+        end
+        for byte = 0, 255 do
+                vmTable[913][byte] = string.char(byte)
+        end
+        local entry = vmTable[1284](vmTable)
+        local wrapper
+        wrapper = function(...)
+                local results = entry(...)
+                vmTable[195] = nil
+                return results
+        end
+        return wrapper
+end
+
+local function mountProtections(vmTable, holder, chunkTable, encryptedAlphabet, seedTable)
+        local jD, uE, sG = runEnvironmentProbes()
+        local kh, ut = deriveSessionKey(jD, uE, sG)
+        if ut ~= 0 then
+                onTamperDetected(vmTable, makeReferenceHolder(), chunkTable, ut)
+                return nil
+        end
+        local blob = getBlob(holder)
+        if blob == nil then
+                return nil
+        end
+        local payload = decodeProgram(kh, blob, encryptedAlphabet, seedTable)
+        if payload == nil then
+                return nil
+        end
+        local frame = makeFrame(payload, kh)
+        local reader = makeStreamReader(frame)
+        wipeRuntimeState(holder)
+        return {
+                kh = kh,
+                frame = frame,
+                reader = reader,
+                permutation = makePermutation(kh),
+                challengeLedger = challengeLedger,
+        }
+end
+
+return {
+        xorshift32 = xorshift32,
+        mix2 = mix2,
+        probeMetatableLock = probeMetatableLock,
+        probeNativeStringByte = probeNativeStringByte,
+        probeTracebackRepetition = probeTracebackRepetition,
+        probeBuiltinSanity = probeBuiltinSanity,
+        runEnvironmentProbes = runEnvironmentProbes,
+        computeVerdict = computeVerdict,
+        deriveSessionKey = deriveSessionKey,
+        decodeName = decodeName,
+        decryptString = decryptString,
+        getBlob = getBlob,
+        decodeBase85 = decodeBase85,
+        assembleCodeBuffer = assembleCodeBuffer,
+        descrambleSwapXor = descrambleSwapXor,
+        deriveKeystreamTable = deriveKeystreamTable,
+        descrambleKeyStream = descrambleKeyStream,
+        descrambleRotate = descrambleRotate,
+        extractPayload = extractPayload,
+        makePermutation = makePermutation,
+        makeStreamReader = makeStreamReader,
+        decodeProgram = decodeProgram,
+        makeFrame = makeFrame,
+        captureSetfenv = captureSetfenv,
+        buildSandboxProxy = buildSandboxProxy,
+        buildSnapshotEnvironment = buildSnapshotEnvironment,
+        installPayloadEnvironment = installPayloadEnvironment,
+        makeGuardedAccessor = makeGuardedAccessor,
+        releasePayload = releasePayload,
+        makeReferenceHolder = makeReferenceHolder,
+        tamperResponse = tamperResponse,
+        wipeRuntimeState = wipeRuntimeState,
+        sabotageOnProbeFailure = sabotageOnProbeFailure,
+        hangForever = hangForever,
+        onTamperDetected = onTamperDetected,
+        encodeInstruction = encodeInstruction,
+        verifyInstruction = verifyInstruction,
+        decodeAndVerifyInstruction = decodeAndVerifyInstruction,
+        reencodeFunctionOpcodes = reencodeFunctionOpcodes,
+        decodeSyntheticOpcode = decodeSyntheticOpcode,
+        remapThroughPool = remapThroughPool,
+        decodeOpcode = decodeOpcode,
+        buildLabelDescriptor = buildLabelDescriptor,
+        verifyLabelDescriptor = verifyLabelDescriptor,
+        checksumModule = checksumModule,
+        commitModule = commitModule,
+        verifyModule = verifyModule,
+        decodeProto = decodeProto,
+        mintChallengeToken = mintChallengeToken,
+        installChallengeGlobal = installChallengeGlobal,
+        protectedCall = protectedCall,
+        runFrame = runFrame,
+        bootstrap = bootstrap,
+        mountProtections = mountProtections,
+}

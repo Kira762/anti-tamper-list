@@ -1,0 +1,495 @@
+do
+local JaN9y=type
+local sZBnw=pcall
+do
+	local aFM=sZBnw(error,"\000",0)
+	if aFM then
+		do error("n.err",0) end
+	end
+end
+do
+	if JaN9y(game)==JaN9y({}) then
+		if not (JaN9y(typeof)=="function" and typeof(game)=="Instance") then do error("g.type",0) end end
+	end
+	if JaN9y(workspace)==JaN9y({}) then
+		if not (JaN9y(typeof)=="function" and typeof(workspace)=="Instance") then do error("ws.type",0) end end
+	end
+	if JaN9y(typeof)~="function" then do error("luau.typeof",0) end end
+	if JaN9y(table.create)~="function" or JaN9y(table.clear)~="function" then do error("luau.table",0) end end
+	if JaN9y(math.clamp)~="function" then do error("luau.math",0) end end
+	if JaN9y(debug)~=JaN9y({}) or JaN9y(debug.info)~="function" then do error("luau.debug",0) end end
+	if JaN9y(rawequal)~="function" then do error("luau.rawequal",0) end end
+	if tostring({})==tostring({}) then do error("tostring.id",0) end end
+	if not rawequal(string.byte,("A").byte) then do error("str.byte",0) end end
+end
+local hRx53=false
+if JaN9y(typeof)=="function" and typeof(game)=="Instance" and JaN9y(game)~=JaN9y({}) then hRx53=true end
+if hRx53 then
+	if JaN9y(getmetatable)=="function" then
+		local aFM,SScS6=sZBnw(getmetatable,game)
+		if aFM and JaN9y(SScS6)==JaN9y({}) then do error("g.mt",0) end end
+	end
+	if not rawequal(game:GetService("Workspace"),workspace) then do error("ws.id",0) end end
+
+do
+	local W8pR=Instance.new
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.inst.line",0) end end
+		if kaES~="new" then do error("c.inst.name",0) end end
+		if a4GpZ~=0 then do error("c.inst.argc",0) end end
+		if C72~=true then do error("c.inst.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.inst.id",0) end end
+	end
+end
+
+do
+	local W8pR=UDim2.new
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.udim.line",0) end end
+		if kaES~="new" then do error("c.udim.name",0) end end
+		if a4GpZ~=0 then do error("c.udim.argc",0) end end
+		if C72~=true then do error("c.udim.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.udim.id",0) end end
+	end
+end
+
+do
+	local W8pR=Random.new
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.rnd.line",0) end end
+		if kaES~="new" then do error("c.rnd.name",0) end end
+		if a4GpZ~=0 then do error("c.rnd.argc",0) end end
+		if C72~=true then do error("c.rnd.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.rnd.id",0) end end
+	end
+end
+
+do
+	local W8pR=task.spawn
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.tspawn.line",0) end end
+		if kaES~="spawn" then do error("c.tspawn.name",0) end end
+		if a4GpZ~=0 then do error("c.tspawn.argc",0) end end
+		if C72~=true then do error("c.tspawn.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.tspawn.id",0) end end
+	end
+end
+
+do
+	local W8pR=task.defer
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.tdefer.line",0) end end
+		if kaES~="defer" then do error("c.tdefer.name",0) end end
+		if a4GpZ~=0 then do error("c.tdefer.argc",0) end end
+		if C72~=true then do error("c.tdefer.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.tdefer.id",0) end end
+	end
+end
+
+do
+	local W8pR=task.delay
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.tdelay.line",0) end end
+		if kaES~="delay" then do error("c.tdelay.name",0) end end
+		if a4GpZ~=0 then do error("c.tdelay.argc",0) end end
+		if C72~=true then do error("c.tdelay.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.tdelay.id",0) end end
+	end
+end
+
+do
+	local W8pR=task.wait
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.twait.line",0) end end
+		if kaES~="wait" then do error("c.twait.name",0) end end
+		if a4GpZ~=0 then do error("c.twait.argc",0) end end
+		if C72~=true then do error("c.twait.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.twait.id",0) end end
+	end
+end
+
+do
+	local W8pR=task.cancel
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.tcancel.line",0) end end
+		if kaES~="cancel" then do error("c.tcancel.name",0) end end
+		if a4GpZ~=0 then do error("c.tcancel.argc",0) end end
+		if C72~=true then do error("c.tcancel.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.tcancel.id",0) end end
+	end
+end
+end
+do
+	if hRx53 and JaN9y(getfenv)=="function" and JaN9y(setfenv)=="function" then
+		local zY8=getfenv(UDim2.new)
+		if JaN9y(zY8)~=JaN9y({}) then do error("fenv.c",0) end end
+		if sZBnw(setfenv,UDim2.new,{}) then do error("setfenv.c",0) end end
+		local function MrCm() return true end
+		local YPs6={["m"]=true}
+		setfenv(MrCm,YPs6)
+		if not rawequal(getfenv(MrCm),YPs6) then do error("fenv.lua",0) end end
+	end
+end
+do
+	local XaG=7
+	if XaG~=XaG then do error("nan",0) end end
+	if XaG*0~=0 then do error("arith",0) end end
+	if XaG<0 then do error("sign",0) end end
+end
+if hRx53 then
+do
+	local Fct=game.JobId
+	if Fct=="00000000-0000-0000-0000-000000000000" then
+		local REQcU=false
+		sZBnw(function()
+			local g5U42=game:GetService("Players")
+			local Kubzy,PmPp=sZBnw(function() return g5U42 and g5U42.LocalPlayer end)
+			if Kubzy and PmPp and (PmPp.UserId==123456789 or PmPp.Name=="vole7vin") then REQcU=true end
+		end)
+		if game.PlaceId==8916037983 then REQcU=true end
+		if REQcU then do error("jobid",0) end end
+	end
+	if Fct=="bypass-job-id" or Fct=="sandbox" then do error("l2.job",0) end end
+	if JaN9y(Fct)=="string" and #Fct>0 and not string.find(Fct,"%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
+		if Fct~="" then do error("l2.job2",0) end end
+	end
+	local k2p7h=game.PlaceId
+	if k2p7h==8916037983 then do error("place",0) end end
+	local BWQd3=game.GameId
+	if BWQd3==8916037983 then do error("gameid",0) end end
+	if k2p7h==142823291 and BWQd3==66654135 then do error("l2.place",0) end end
+end
+do
+	local aFM,g5U42=sZBnw(function() return game:GetService("Players") end)
+	if not aFM or g5U42==nil then do error("pl.get",0) end end
+	local WKPj,AuER=sZBnw(function() return game:GetService("RunService") end)
+	if WKPj and AuER~=nil and AuER:IsClient() then
+		local Kubzy,PmPp=sZBnw(function() return g5U42.LocalPlayer end)
+		if not Kubzy or PmPp==nil then do error("lp.nil",0) end end
+		if PmPp.UserId==123456789 then do error("uid",0) end end
+		if PmPp.CharacterAppearanceId==123456789 then do error("caid",0) end end
+		if PmPp.Name=="vole7vin" then do error("name",0) end end
+		if PmPp.DisplayName=="vole7vin" then do error("dname",0) end end
+		if PmPp.UserId==1 and PmPp.Name=="Player" and PmPp.DisplayName=="Player" then do error("l2.lp",0) end end
+		local cYxby=g5U42:GetPlayers()
+		if JaN9y(cYxby)==JaN9y({}) and #cYxby>0 then
+			local rFSpP=cYxby[1]
+			if rFSpP~=nil and rFSpP.UserId==123456789 then do error("p0uid",0) end end
+			if rFSpP~=nil and rFSpP.Name=="vole7vin" then do error("p0name",0) end end
+		end
+		if g5U42.MaxPlayers==16 and PmPp.UserId==123456789 then do error("maxpl",0) end end
+	end
+end
+do
+	local qNda=game:GetService("Lighting")
+	if qNda~=nil then
+		if qNda.GeographicLatitude==41.7 and qNda.FogEnd==100000 then do error("light",0) end end
+		if qNda.TimeOfDay=="12:00:00" and qNda.GeographicLatitude==41.7 then do error("tod",0) end end
+	end
+end
+do
+	local UvbW=game:GetService("SoundService")
+	if UvbW~=nil then
+		if UvbW.DistanceFactor==3.33 and UvbW.RolloffScale==1 then
+			local Fct=game.JobId
+			if Fct=="bypass-job-id" or Fct=="sandbox" then
+				do error("sound",0) end
+			elseif Fct=="00000000-0000-0000-0000-000000000000" and game.PlaceId==8916037983 then
+				do error("sound",0) end
+			end
+		end
+	end
+end
+do
+	local YgarP=game:GetService("HttpService")
+	if YgarP~=nil then
+		if YgarP.HttpEnabled==true and game.JobId=="00000000-0000-0000-0000-000000000000" and game.PlaceId==8916037983 then do error("http",0) end end
+		if YgarP.HttpEnabled==true and game.JobId=="bypass-job-id" then do error("l2.http",0) end end
+	end
+end
+do
+	local xbH=game:GetService("Stats")
+	if xbH==nil then do error("st.get",0) end end
+	local kbnbh=xbH:GetChildren()
+	if JaN9y(kbnbh)==JaN9y({}) and #kbnbh==5 then
+		if game.PlaceId==8916037983 then do error("stats5",0) end end
+	end
+	local aFM,PW8WX=sZBnw(function() return xbH.Network end)
+	if aFM and PW8WX~=nil then
+		local Kubzy,De4=sZBnw(function() return PW8WX.ServerStatsItem end)
+		if Kubzy and De4~=nil then
+			local GtUq=nil
+			Kubzy,GtUq=sZBnw(function() return De4["Data Ping"] end)
+			if Kubzy and GtUq~=nil then
+				local kYttw=nil
+				aFM,kYttw=sZBnw(GtUq.GetValue,GtUq)
+				if aFM then
+					local Xyh=math.floor(tonumber(kYttw) or 0)
+					local AuER=game:GetService("RunService")
+					if Xyh==0 and AuER~=nil and not AuER:IsStudio() then do error("st.ping",0) end end
+				end
+			end
+		end
+	end
+end
+do
+	local AuER=game:GetService("RunService")
+	if AuER~=nil and AuER:IsClient() then
+		local aFM,rZN8=sZBnw(function() return game:GetService("CoreGui") end)
+		if not aFM or rZN8==nil then do error("cg.get",0) end end
+		local cThMx=rZN8:FindFirstChild("RobloxGui")
+		if cThMx==nil then do error("cg.rbx",0) end end
+		if cThMx.ClassName~="ScreenGui" then do error("cg.rbx.cls",0) end end
+		if cThMx:IsA("Folder") then do error("l2.rbx",0) end end
+	end
+end
+do
+	local Fcd=game:GetService("Workspace") or workspace
+	if Fcd~=nil then
+		if Fcd:IsA("WorldRoot")==false then do error("ws.wr",0) end end
+		local Yz4P8=Fcd:GetFullName()
+		if JaN9y(Yz4P8)=="string" and string.sub(Yz4P8,1,5)=="Game." then do error("ws.gdot",0) end end
+	end
+end
+do
+	local AuER=game:GetService("RunService")
+	if AuER==nil then do error("rs.get",0) end end
+do
+	local W8pR=AuER.IsStudio
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.studio.line",0) end end
+		if kaES~="IsStudio" then do error("c.studio.name",0) end end
+		if a4GpZ~=0 then do error("c.studio.argc",0) end end
+		if C72~=true then do error("c.studio.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.studio.id",0) end end
+	end
+end
+do
+	local W8pR=AuER.IsClient
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.client.line",0) end end
+		if kaES~="IsClient" then do error("c.client.name",0) end end
+		if a4GpZ~=0 then do error("c.client.argc",0) end end
+		if C72~=true then do error("c.client.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.client.id",0) end end
+	end
+end
+do
+	local W8pR=AuER.IsServer
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.server.line",0) end end
+		if kaES~="IsServer" then do error("c.server.name",0) end end
+		if a4GpZ~=0 then do error("c.server.argc",0) end end
+		if C72~=true then do error("c.server.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.server.id",0) end end
+	end
+end
+	if sZBnw(AuER.IsStudio) then do error("rs.studio.self",0) end end
+	if sZBnw(AuER.IsClient) then do error("rs.client.self",0) end end
+	if sZBnw(AuER.IsServer) then do error("rs.server.self",0) end end
+	if AuER:IsClient() and AuER:IsServer() then do error("rs.both",0) end end
+end
+do
+	local mHU=Instance.new("BindableEvent")
+	local jDzGv=mHU.Event
+	local aqkc=mHU.Event
+	if jDzGv~=aqkc then do error("sig.eq",0) end end
+	if rawequal(jDzGv,aqkc) then do error("sig.raw",0) end end
+	if typeof(jDzGv)~="RBXScriptSignal" then do error("sig.typeof",0) end end
+	local xvJw=jDzGv:Connect(function() end)
+	if xvJw.Connected~=true then do error("sig.conn",0) end end
+	if sZBnw(xvJw.Disconnect) then do error("sig.disc.self",0) end end
+	if xvJw.Connected~=true then do error("sig.disc.state",0) end end
+	xvJw:Disconnect()
+	if xvJw.Connected~=false then do error("sig.disc",0) end end
+	mHU:Destroy()
+end
+do
+	local eFmRr=Enum.HumanoidStateType
+do
+	local W8pR=eFmRr.FromName
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.enum.name.line",0) end end
+		if kaES~="FromName" then do error("c.enum.name.name",0) end end
+		if a4GpZ~=0 then do error("c.enum.name.argc",0) end end
+		if C72~=true then do error("c.enum.name.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.enum.name.id",0) end end
+	end
+end
+do
+	local W8pR=eFmRr.FromValue
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.enum.val.line",0) end end
+		if kaES~="FromValue" then do error("c.enum.val.name",0) end end
+		if a4GpZ~=0 then do error("c.enum.val.argc",0) end end
+		if C72~=true then do error("c.enum.val.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.enum.val.id",0) end end
+	end
+end
+	if rawequal(eFmRr.FromName,eFmRr.FromName) then do error("enum.fresh.n",0) end end
+	if rawequal(eFmRr.FromValue,eFmRr.FromValue) then do error("enum.fresh.v",0) end end
+	if sZBnw(eFmRr.FromName) then do error("enum.name.self",0) end end
+	if sZBnw(eFmRr.FromValue) then do error("enum.val.self",0) end end
+	if eFmRr:FromName("X")~=nil then do error("enum.unk",0) end end
+	if eFmRr:FromValue(0)~=Enum.HumanoidStateType.FallingDown then do error("enum.v0",0) end end
+	if typeof(Enum.HumanoidStateType.FallingDown)~="EnumItem" then do error("enum.typeof",0) end end
+end
+do
+	local F77y=Instance.new("Folder")
+do
+	local W8pR=F77y.IsA
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.isa.line",0) end end
+		if kaES~="IsA" then do error("c.isa.name",0) end end
+		if a4GpZ~=0 then do error("c.isa.argc",0) end end
+		if C72~=true then do error("c.isa.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.isa.id",0) end end
+	end
+end
+do
+	local W8pR=F77y.Destroy
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.destroy.line",0) end end
+		if kaES~="Destroy" then do error("c.destroy.name",0) end end
+		if a4GpZ~=0 then do error("c.destroy.argc",0) end end
+		if C72~=true then do error("c.destroy.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.destroy.id",0) end end
+	end
+end
+do
+	local W8pR=game.GetService
+	local aFM,WGEY,sWth,kaES,a4GpZ,C72,CaqHF=sZBnw(function()
+		return debug.info(W8pR,"slnaf")
+	end)
+	if aFM and WGEY=="[C]" then
+		if sWth~=-1 then do error("c.getsvc.line",0) end end
+		if kaES~="GetService" then do error("c.getsvc.name",0) end end
+		if a4GpZ~=0 then do error("c.getsvc.argc",0) end end
+		if C72~=true then do error("c.getsvc.var",0) end end
+		if not rawequal(CaqHF,W8pR) then do error("c.getsvc.id",0) end end
+	end
+end
+	F77y.Name="Axd6u8fnq"
+	if not F77y:IsA("Folder") then do error("isa.folder",0) end end
+	if not F77y:IsA("Instance") then do error("isa.inst",0) end end
+	if F77y:IsA("Part") then do error("isa.part",0) end end
+	F77y:SetAttribute("hnhdsyvp",54)
+	F77y:Destroy()
+	if F77y.Parent~=nil then do error("dead.parent",0) end end
+	if F77y.Name~="Axd6u8fnq" then do error("dead.name",0) end end
+	if F77y:GetAttribute("hnhdsyvp")~=54 then do error("dead.attr",0) end end
+end
+do
+	local TB2m=Random.new(1515359100)
+	if TB2m:NextInteger(532,1117)~=763 then do error("rnd.i1",0) end end
+	local JHC=TB2m:NextNumber()
+	if JHC~=0.52705833430898807 then do error("rnd.n1",0) end end
+	JHC=TB2m:NextNumber()
+	if JHC~=0.44671507908619318 then do error("rnd.n2",0) end end
+	if TB2m:NextInteger(299,786)~=397 then do error("rnd.i2",0) end end
+	local HevEe=TB2m:Clone()
+	if HevEe:NextInteger(-1000000,1000000)~=TB2m:NextInteger(-1000000,1000000) then do error("rnd.clone.i",0) end end
+	if HevEe:NextNumber()~=TB2m:NextNumber() then do error("rnd.clone.n",0) end end
+end
+do
+	if JaN9y(buffer)~=JaN9y({}) then do error("buf.miss",0) end end
+	local zPHN=buffer.create(40)
+	buffer.writeu8(zPHN,0,0xFE)
+	buffer.writeu16(zPHN,1,0xBEEF)
+	buffer.writei16(zPHN,3,-1234)
+	buffer.writei32(zPHN,5,-123456789)
+	buffer.writeu32(zPHN,9,0x89ABCDEF)
+	buffer.writef32(zPHN,13,1.5)
+	buffer.writef64(zPHN,17,math.pi)
+	buffer.writestring(zPHN,25,"#UJ7")
+	if buffer.len(zPHN)~=40 then do error("buf.len",0) end end
+	if buffer.readu8(zPHN,0)~=0xFE then do error("buf.u8",0) end end
+	if buffer.readu16(zPHN,1)~=0xBEEF then do error("buf.u16",0) end end
+	if buffer.readi16(zPHN,3)~=-1234 then do error("buf.i16",0) end end
+	if buffer.readi32(zPHN,5)~=-123456789 then do error("buf.i32",0) end end
+	if buffer.readu32(zPHN,9)~=0x89ABCDEF then do error("buf.u32",0) end end
+	if buffer.readf32(zPHN,13)~=1.5 then do error("buf.f32",0) end end
+	if buffer.readf64(zPHN,17)~=math.pi then do error("buf.f64",0) end end
+	if buffer.readstring(zPHN,25,4)~="#UJ7" then do error("buf.str",0) end end
+	if JaN9y(vector)~=JaN9y({}) or JaN9y(vector.create)~="function" then do error("vec.miss",0) end end
+	local RuB=vector.create(1.25,-2.5,3.75)
+	if typeof(RuB)~="Vector3" then do error("vec.typeof",0) end end
+	if RuB.x~=1.25 or RuB.y~=-2.5 or RuB.z~=3.75 then do error("vec.xyz",0) end end
+end
+do
+	local cdu,BkW=sZBnw(function()
+		local GZFz=Instance.new("ScreenGui")
+		GZFz.Parent=game:GetService("StarterGui")
+		local PuU6n=Instance.new("Frame")
+		PuU6n.Size=UDim2.fromOffset(100,100)
+		PuU6n.Parent=GZFz
+		local T6Xx=Instance.new("Path2D")
+		T6Xx.Parent=PuU6n
+		local WPHqY=UDim2.new()
+		T6Xx:SetControlPoints({
+			Path2DControlPoint.new(UDim2.new(0.125,-5,0,-2),UDim2.new(0,4,0,7),WPHqY),
+			Path2DControlPoint.new(UDim2.new(0,-9,0.1875,1),WPHqY,UDim2.new(0,7,0,6)),
+			Path2DControlPoint.new(UDim2.new(0,3,0.25,-8),UDim2.new(0,4,0,-2),WPHqY),
+			Path2DControlPoint.new(UDim2.new(0,0,0,-1),UDim2.new(0,5,0,-7),WPHqY),
+			Path2DControlPoint.new(UDim2.new(0,-3,0.25,-6),WPHqY,WPHqY),
+		})
+		local JHC={
+			len=T6Xx:GetLength(),
+			tx=(T6Xx:GetTangentOnCurve(0.699999988079071)).X,
+			ty=(T6Xx:GetTangentOnCurve(0.699999988079071)).Y,
+		}
+		GZFz:Destroy()
+		return JHC
+	end)
+	if cdu and JaN9y(BkW)==JaN9y({}) then
+		if BkW.len~=86.37268829345703 then do error("path.len",0) end end
+		if BkW.tx~=-7.19999885559082 or BkW.ty~=1.1999969482421875 then do error("path.tan",0) end end
+	end
+end
+end
+end

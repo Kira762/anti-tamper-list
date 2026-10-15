@@ -1,0 +1,263 @@
+
+local function dtc(msg)
+    error(msg or "DTC by Luavex", 0)
+end
+
+--@sxy.com
+local function environment_check(w, z, K, L, y, D, J, x, H, t, F, u)
+    return
+        (w(function() end) and z(1) == "number") and
+        K(0, 0) == 0 and
+        L(255, 15) == 15 and
+        z(w) == "function" and
+        y("#", u({7, 8})) == 2 and
+        D({"a", "b"}) == "ab" and
+        z("") == "string" and
+        z(J) == "function" and
+        x(function() return 1 end, function() end) and
+        H(42) == "42" and
+        y("#", 1, 2, 3) == 3 and
+        t(1, 2, 3).n == 3 and
+        F(1.9) == 1
+end
+
+local function vm_integrity_check(K, L)
+    local a = K(K(33, 62), 25)
+    local b = K(K(a, 25), 62)
+    return b == L(33, 0xFFFFFFFF)
+end
+
+local function vm_integrity_fail(state)
+    state[3] = {}
+    state[5] = #state[2] + 1
+end
+
+local function validate_remote_challenge(response, nonce, os_time)
+    if type(response) ~= "string" then
+        dtc()
+    end
+
+    local a, hex64, timestamp =
+        string.match(response, "^([%w_%-]+)%.([0-9a-f]+)%.(%d+)%.([%w_%-]+)$")
+
+    if a ~= nonce
+        or type(hex64) ~= "string"
+        or #hex64 ~= 64
+        or tonumber(timestamp) == nil
+        or tonumber(timestamp) <= os_time() * 1000
+    then
+        dtc()
+    end
+
+    local mask = {
+        212,214,241,31,144,37,148,0,
+        181,136,241,75,249,81,220,126,
+        210,117,7,172,147,66,18,26,
+        236,202,249,40,25,253,94,16
+    }
+
+    local decoded = {}
+
+    for i = 1, 64, 2 do
+        local v = tonumber(string.sub(hex64, i, i + 1), 16)
+        if v == nil then
+            dtc()
+        end
+
+        local j = #decoded + 1
+        decoded[j] = bit32.bxor(
+            v,
+            (mask[j] + string.byte(nonce, ((j - 1) % #nonce) + 1) * 205 + j * 207) % 256
+        )
+    end
+
+    local checksum = 1949
+    for i = 1, #decoded do
+        checksum =
+            (checksum + decoded[i] * ((i + 16) % 251 + 1)) % 65521
+    end
+
+    if #decoded ~= 32 or checksum ~= 40741 then
+        dtc()
+    end
+
+    return decoded
+end
+
+local function validate_challenge_key(key)
+    if type(key) ~= "table" or #key ~= 32 then
+        dtc()
+    end
+end
+
+local function make_constant_table(encrypted, expected, target, length, key)
+    validate_challenge_key(key)
+
+    local alphabet = "E9AB43FD07C85126"
+    local access_count = {}
+
+    return setmetatable(target, {
+        __len = function()
+            return length
+        end,
+
+        __index = function(tbl, index)
+            local encoded = encrypted[index]
+            if encoded == nil then
+                return nil
+            end
+
+            local bytes = {}
+
+            for j = 1, #encoded, 2 do
+                local hi = string.find(
+                    alphabet, string.sub(encoded, j, j), 1, true
+                ) - 1
+
+                local lo = string.find(
+                    alphabet, string.sub(encoded, j + 1, j + 1), 1, true
+                ) - 1
+
+                bytes[#bytes + 1] = bit32.bxor(
+                    hi * 16 + lo,
+                    (221 + index - 1 + (#bytes) * 131) % 256,
+                    key[((#bytes + 1 - 1) % 32) + 1]
+                )
+            end
+
+            local checksum = (2793526779 + index - 1) % 65521
+
+            for j = 1, #bytes do
+                checksum =
+                    (checksum + bytes[j] *
+                    ((j + ((2793526779 + index - 1) % 256)) % 251 + 1))
+                    % 65521
+            end
+
+            if checksum ~= expected[index] then
+                dtc()
+            end
+
+            local tag = bytes[1]
+            local value
+
+            if tag == 115 then
+                local chars = {}
+                for j = 2, #bytes do
+                    chars[#chars + 1] = string.char(bytes[j])
+                end
+                value = table.concat(chars)
+
+            elseif tag == 152 then
+                local chars = {}
+                for j = 2, #bytes do
+                    chars[#chars + 1] = string.char(bytes[j])
+                end
+                value = tonumber(table.concat(chars))
+
+            elseif tag == 78 then
+                value = true
+
+            elseif tag == 41 then
+                value = false
+
+            else
+                dtc()
+            end
+
+            access_count[index] = (access_count[index] or 0) + 1
+
+            if access_count[index] > 1 then
+                rawset(tbl, index, value)
+                encrypted[index] = nil
+            end
+
+            return value
+        end
+    })
+end
+
+local function decode_constant_array(chunks, expected, seed, expected_length, key)
+    validate_challenge_key(key)
+
+    local alphabet = "124C6BE3F8AD5790"
+    local joined = table.concat(chunks)
+    local output = {}
+    local state = seed
+
+    for i = 1, #joined, 2 do
+        local hi = string.find(
+            alphabet, string.sub(joined, i, i), 1, true
+        ) - 1
+
+        local lo = string.find(
+            alphabet, string.sub(joined, i + 1, i + 1), 1, true
+        ) - 1
+
+        local value = bit32.bxor(
+            hi * 16 + lo,
+            (173 + i + state * 29) % 256,
+            key[((#output) % 32) + 1]
+        )
+
+        output[#output + 1] = value
+        state = value
+    end
+
+    if #output ~= expected_length then
+        dtc()
+    end
+
+    return output
+end
+
+local function validate_compiler(load_fn, source)
+    if type(load_fn) ~= "function" then
+        dtc()
+    end
+
+    local fn, err = load_fn(source)
+
+    if type(fn) ~= "function" or err ~= nil then
+        dtc()
+    end
+
+    return fn
+end
+
+local function safe_index(indexer, key)
+    local ok, value = pcall(function()
+        return indexer[key]
+    end)
+
+    if ok then
+        return value
+    end
+
+    return nil
+end
+
+local function vm_runtime_guard(state, pc, task_api)
+    local wait_fn
+    if task_api then
+        wait_fn = task_api["wait"]
+    end
+
+    if pc % 75637 < 4 and wait_fn then
+        wait_fn()
+    end
+
+    return true
+end
+
+local function final_integrity(R, S, T)
+    local checksum =
+        (38944 + #R * 3 + #S * 5 + #T * 7 + 0 * 11 + 3 * 13 + 17)
+        % 65521
+
+    if checksum ~= 39086 then
+        dtc()
+    end
+
+    return true
+end

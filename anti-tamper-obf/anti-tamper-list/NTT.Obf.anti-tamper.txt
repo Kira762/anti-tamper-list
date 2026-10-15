@@ -1,0 +1,277 @@
+-- NTT Obfuscator Anti-Tamper | https://nttobf.com
+-- Leaked by LLH Lua Land
+-- Ez Leak | .gg/Zame2JAGDr
+
+local originalGetfenv = getfenv
+local environment = originalGetfenv(1)
+local typeOf = environment.type
+local protectedCall = environment.pcall
+local raiseError = environment.error
+local hookDetector = environment.isfunctionhooked
+local trackedReferences = {}
+
+local function protectedLookup(target, key)
+    if typeOf(target) ~= "table" then
+        return true, nil
+    end
+
+    return protectedCall(function()
+        return target[key]
+    end)
+end
+
+local function trackReference(target, key, checkForHook, required)
+    if typeOf(target) ~= "table" then
+        return
+    end
+
+    local succeeded, value = protectedLookup(target, key)
+    if succeeded then
+        trackedReferences[#trackedReferences + 1] = {
+            target = target,
+            key = key,
+            expectedValue = value,
+            checkForHook = checkForHook,
+            required = required
+        }
+    end
+end
+
+local function trackTableMember(target, key, required)
+    if typeOf(target) ~= "table" then
+        return
+    end
+
+    local succeeded, value = protectedLookup(target, key)
+    if succeeded then
+        trackedReferences[#trackedReferences + 1] = {
+            target = target,
+            key = key,
+            expectedValue = value,
+            checkForHook = true,
+            required = required
+        }
+    end
+end
+
+if typeOf(protectedCall) ~= "function" then
+    raiseError(0x7789, 0)
+    return
+end
+
+local globalReferences = {
+    {"type", true, true},
+    {"pcall", true, true},
+    {"xpcall", true, true},
+    {"error", true, true},
+    {"rawget", true, true},
+    {"rawset", true, true},
+    {"setmetatable", true, true},
+    {"getmetatable", true, true},
+    {"select", true, true},
+    {"next", true, true},
+    {"pairs", true, true},
+    {"ipairs", true, true},
+    {"assert", true, true},
+    {"tonumber", true, true},
+    {"tostring", true, true},
+    {"getfenv", true, true},
+    {"print", true, false},
+    {"warn", true, false},
+    {"typeof", true, false},
+    {"loadstring", true, false},
+    {"load", true, false},
+    {"string", false, true},
+    {"table", false, true},
+    {"math", false, true},
+    {"bit32", false, false},
+    {"buffer", false, false},
+    {"debug", false, false},
+    {"isfunctionhooked", false, false}
+}
+
+for index = 1, #globalReferences do
+    local entry = globalReferences[index]
+    trackReference(environment, entry[1], entry[2], entry[3])
+end
+
+local stringLibrary = environment.string
+local tableLibrary = environment.table
+local mathLibrary = environment.math
+local bit32Library = environment.bit32
+local bufferLibrary = environment.buffer
+local debugLibrary = environment.debug
+
+trackTableMember(stringLibrary, "byte", true)
+trackTableMember(stringLibrary, "char", true)
+trackTableMember(stringLibrary, "sub", true)
+trackTableMember(stringLibrary, "reverse", true)
+trackTableMember(tableLibrary, "concat", true)
+trackTableMember(mathLibrary, "floor", true)
+trackTableMember(bit32Library, "bxor", false)
+trackTableMember(bit32Library, "band", false)
+trackTableMember(bit32Library, "rshift", false)
+trackTableMember(bufferLibrary, "fromstring", false)
+trackTableMember(bufferLibrary, "tostring", false)
+trackTableMember(bufferLibrary, "len", false)
+trackTableMember(bufferLibrary, "create", false)
+trackTableMember(bufferLibrary, "readu8", false)
+trackTableMember(bufferLibrary, "writeu8", false)
+trackTableMember(debugLibrary, "info", false)
+trackTableMember(debugLibrary, "getinfo", false)
+
+local function tupleProbe(firstValue, secondValue)
+    return firstValue, nil, secondValue
+end
+
+local selectedDebugFunction
+local usesDebugInfo = false
+
+local debugInfoSucceeded, debugInfoFunction = protectedLookup(debugLibrary, "info")
+if debugInfoSucceeded and typeOf(debugInfoFunction) == "function" then
+    local callSucceeded, lineNumber, parameterCount, isVararg, reportedFunction =
+        protectedCall(debugInfoFunction, tupleProbe, "laf")
+
+    if callSucceeded and
+        typeOf(lineNumber) == "number" and
+        lineNumber >= 0 and
+        parameterCount == 2 and
+        isVararg == false and
+        reportedFunction == tupleProbe then
+        selectedDebugFunction = debugInfoFunction
+        usesDebugInfo = true
+    end
+end
+
+if not selectedDebugFunction then
+    local getInfoSucceeded, getInfoFunction = protectedLookup(debugLibrary, "getinfo")
+    if getInfoSucceeded and typeOf(getInfoFunction) == "function" then
+        local callSucceeded, info = protectedCall(getInfoFunction, tupleProbe, "S")
+        if callSucceeded and
+            typeOf(info) == "table" and
+            info.what == "Lua" and
+            typeOf(info.linedefined) == "number" and
+            info.linedefined >= 0 then
+            selectedDebugFunction = getInfoFunction
+            usesDebugInfo = false
+        end
+    end
+end
+
+local function checkEnvironmentIntegrity(runBehaviorChecks)
+    if environment.getfenv ~= originalGetfenv then
+        return false
+    end
+
+    for index = 1, #trackedReferences do
+        local reference = trackedReferences[index]
+        local expectedValue = reference.expectedValue
+
+        if reference.required and
+            (expectedValue == nil or
+                (reference.checkForHook and typeOf(expectedValue) ~= "function")) then
+            return false
+        end
+
+        local succeeded, currentValue =
+            protectedLookup(reference.target, reference.key)
+        if not succeeded or currentValue ~= expectedValue then
+            return false
+        end
+
+        if reference.checkForHook and
+            typeOf(expectedValue) == "function" and
+            typeOf(hookDetector) == "function" then
+            local hookCheckSucceeded, isHooked =
+                protectedCall(hookDetector, expectedValue)
+            if hookCheckSucceeded and isHooked == true then
+                return false
+            end
+        end
+    end
+
+    if not runBehaviorChecks then
+        return true
+    end
+
+    if selectedDebugFunction then
+        if usesDebugInfo then
+            local succeeded, lineNumber, parameterCount, isVararg, reportedFunction =
+                protectedCall(selectedDebugFunction, tupleProbe, "laf")
+
+            if not succeeded or
+                typeOf(lineNumber) ~= "number" or
+                lineNumber < 0 or
+                parameterCount ~= 2 or
+                isVararg ~= false or
+                reportedFunction ~= tupleProbe then
+                return false
+            end
+        else
+            local succeeded, info =
+                protectedCall(selectedDebugFunction, tupleProbe, "S")
+
+            if not succeeded or
+                typeOf(info) ~= "table" or
+                info.what ~= "Lua" or
+                typeOf(info.linedefined) ~= "number" or
+                info.linedefined < 0 then
+                return false
+            end
+        end
+    end
+
+    local librariesPassed, behaviorChecksPassed = protectedCall(function()
+        return stringLibrary.byte(stringLibrary.char(0x41, 0x00, 0x5A), 0x02) == 0x00
+            and stringLibrary.sub("abc", 0x02, 0x03) == "bc"
+            and stringLibrary.reverse("abc") == "cba"
+            and tableLibrary.concat({"a", "b"}, ":") == "a:b"
+            and mathLibrary.floor(0xF / 0x4) == 0x03
+            and environment.tonumber("17") == 0x11
+            and environment.tostring(false) == "false"
+    end)
+
+    if not librariesPassed or behaviorChecksPassed ~= true then
+        return false
+    end
+
+    if originalGetfenv(0x01) ~= environment then
+        return false
+    end
+
+    if typeOf(0x01) ~= "number" or
+        typeOf(false) ~= "boolean" or
+        typeOf(nil) ~= "nil" or
+        typeOf({}) ~= "table" then
+        return false
+    end
+
+    local callSucceeded, firstValue, middleValue, lastValue =
+        protectedCall(tupleProbe, 0x0D, 0x11)
+    local returnedValueCount =
+        environment.select("#", protectedCall(tupleProbe, 0x0D, 0x11))
+
+    if callSucceeded ~= true or
+        firstValue ~= 0x0D or
+        middleValue ~= nil or
+        lastValue ~= 0x11 or
+        returnedValueCount ~= 0x04 then
+        return false
+    end
+
+    local expectedError = "LZ7iYb8GVUV"
+    local errorCallSucceeded, actualError = protectedCall(function()
+        raiseError(expectedError, 0)
+    end)
+
+    if errorCallSucceeded ~= false or actualError ~= expectedError then
+        return false
+    end
+
+    return true
+end
+
+if not checkEnvironmentIntegrity(true) then
+    raiseError(0x7789, 0)
+    return
+end

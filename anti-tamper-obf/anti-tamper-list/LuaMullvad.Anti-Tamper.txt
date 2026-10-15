@@ -1,0 +1,175 @@
+-- Mullvad Anti-Tamper Function
+-- Leaked by LLH Lua Land from https://.gg/Zame2JAGDr
+
+function()
+local W={IDENTIFY=5,GENV=3,HIGH=2,MED=1,STACKENV=2,LOGSIG=2,TR_ARTIFACT=2}
+local HIGH={["hookfunction"]=1,["hookfunc"]=1,["replaceclosure"]=1,["newcclosure"]=1,["getrawmetatable"]=1,["setreadonly"]=1,["checkcaller"]=1,["islclosure"]=1,["iscclosure"]=1,["getnamecallmethod"]=1,["setnamecallmethod"]=1,["firetouchinterest"]=1,["fireclickdetector"]=1,["dumpstring"]=1,["request"]=1,["http_request"]=1}
+local MED={["getgenv"]=1,["getrenv"]=1,["getsenv"]=1,["getgc"]=1,["getreg"]=1,["syn"]=1,["KRNL_LOADED"]=1,["secure_load"]=1,["is_sirhurt_closure"]=1}
+local LOG_SUB={"synapse","krnl","fluxus","delta","solara","wave","identifyexecutor","hookfunction","getgenv"}
+local TRACER={"sandbox","tracer","monitor","spy","logger","intercept","hooklog"}
+local mvqecefch=o12rxv(true)
+if type(mvqecefch)~="table" then
+return
+end
+rawset(mvqecefch,"stage",2)
+local G=_G
+if type(G)~="table" then
+G={}
+end
+local highHits=0
+local medHits=0
+local trHits=0
+local
+function scanT(env,cap,tag)
+if type(env)~="table" then
+return
+end
+local n=0
+local cut=false
+local ok=pcall(
+function()
+for k,_ in pairs(env) do
+n=n+1
+if n>cap then
+cut=true break
+end
+if type(k)=="string" then
+if HIGH[k] and highHits<3 then
+highHits=highHits+1 jgub(mvqecefch,"ENVHIGH_"..k,0,W.HIGH,nil,tag..":"..k)
+elseif MED[k] and medHits<4 then
+medHits=medHits+1 jgub(mvqecefch,"ENVMED_"..k,0,W.MED,nil,tag..":"..k)
+end
+end
+end
+end
+)
+if not ok then
+yxt(mvqecefch,tag.."_UNREADABLE",1,tag.."_UNREADABLE")
+end
+if cut then
+jgub(mvqecefch,"ENV_WALK_TRUNCATED_"..tag,0,nil,nil,"ENV_WALK_TRUNCATED")
+end
+end
+local idOk,idName=pcall(
+function()
+local _ie=_G["identifyexecutor"]
+if type(_ie)=="function" then
+return _ie()
+end
+return nil
+end
+)
+if idOk and type(idName)=="string" then
+local v=idName:gsub("^%s+",""):gsub("%s+$",""):lower()
+if v~="" and v~="none" and v~="unknown" and v~="default" then
+jgub(mvqecefch,"IDENTIFYEXECUTOR",0,W.IDENTIFY,nil,"IDENTIFYEXECUTOR:"..v:sub(1,24))
+end
+end
+scanT(G,40933,"G")
+if type(shared)=="table" then
+scanT(shared,11762,"SHARED")
+end
+local rbc,gg=pcall(
+function()
+local kccz5vbx=_G["getgenv"]
+if type(kccz5vbx)=="function" then
+return kccz5vbx()
+end
+return nil
+end
+)
+if rbc and type(gg)=="table" then
+jgub(mvqecefch,"GENV_TABLE",2,W.GENV,nil,"GETGENV_TABLE") scanT(gg,40933,"GENV")
+end
+local _gf=_G["getfenv"]
+if type(_gf)=="function" then
+local stkCut=false
+for level=0,6 do
+local ok,env=pcall(_gf,level)
+if ok and type(env)=="table" then
+local n=0
+local walked=pcall(
+function()
+for k,_ in pairs(env) do
+n=n+1
+if n>3995 then
+stkCut=true break
+end
+if type(k)=="string" and (HIGH[k] or MED[k]) then
+jgub(mvqecefch,"STACKENV_"..k,0,W.STACKENV,nil,"STACKENV_L"..level..":"..k)
+end
+end
+end
+)
+if not walked then
+yxt(mvqecefch,"STACKENV_UNREADABLE",1,"STACKENV_UNREADABLE")
+end
+end
+end
+if stkCut then
+jgub(mvqecefch,"ENV_WALK_TRUNCATED_STK",0,nil,nil,"ENV_WALK_TRUNCATED")
+end
+end
+local
+function scanTracerNames(env,cap)
+if type(env)~="table" then
+return
+end
+local n=0
+local cut=false
+local ok=pcall(
+function()
+for k,_ in pairs(env) do
+n=n+1
+if n>cap then
+cut=true break
+end
+if type(k)=="string" and trHits<2 then
+local kl=k:lower()
+for i=1,#TRACER do
+if kl:find(TRACER[i],1,true) then
+trHits=trHits+1 jgub(mvqecefch,"TRACER_ARTIFACT",0,nil,2,"TRACER_ARTIFACT") break
+end
+end
+end
+end
+end
+)
+if cut then
+jgub(mvqecefch,"ENV_WALK_TRUNCATED_TR",0,nil,nil,"ENV_WALK_TRUNCATED")
+end
+end
+scanTracerNames(G,40933)
+if rbc and type(gg)=="table" then
+scanTracerNames(gg,40933)
+end
+local logOk,logSvc=pcall(
+function()
+return game:GetService("LogService")
+end
+)
+if logOk and ba7(logSvc) then
+pcall(
+function()
+local mo=logSvc.MessageOut
+if mo==nil then
+return
+end
+mo:Connect(
+function(msg)
+if type(msg)~="string" then
+return
+end
+local m=msg:lower()
+for i=1,#LOG_SUB do
+if m:find(LOG_SUB[i],1,true) then
+jgub(mvqecefch,"LOGSIG",0,W.LOGSIG,nil,"LOGSIG") break
+end
+end
+end
+)
+end
+)
+end
+end
+)()

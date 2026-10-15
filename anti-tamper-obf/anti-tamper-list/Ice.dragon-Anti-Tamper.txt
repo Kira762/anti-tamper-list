@@ -1,0 +1,101 @@
+local rawGet = rawget or function(t, k)
+    return t[k]
+end
+
+local env = (getfenv and getfenv()) or _G
+
+local function freeze()
+    while true do
+    end
+end
+
+local function antiTamper()
+    local isHooked = rawGet(env, "isfunctionhooked")
+
+    if type(isHooked) == "function" then
+        if isHooked(string.char)
+            or isHooked(string.byte)
+            or isHooked(table.concat)
+            or isHooked(pcall)
+            or isHooked(rawget) then
+            freeze()
+        end
+    end
+
+    local dbg = debug
+    local getInfo = dbg and (dbg.info or dbg.getinfo)
+
+    if getInfo then
+        local watched = {
+            string.char,
+            string.byte,
+            table.concat,
+            pcall,
+            rawGet
+        }
+
+        for i = 1, #watched do
+            local fn = watched[i]
+
+            if fn then
+                if dbg.info then
+                    local source, line = getInfo(fn, "sl")
+
+                    if source ~= nil and source ~= "[C]" and line ~= nil and line > 0 then
+                        freeze()
+                    end
+                elseif dbg.getinfo then
+                    local info = getInfo(fn)
+
+                    if info and info.what == "Lua" then
+                        freeze()
+                    end
+                end
+            end
+        end
+    end
+
+    if setfenv then
+        local ok = pcall(setfenv, string.char, {})
+
+        if ok then
+            freeze()
+        end
+    end
+
+    if string and string.char and rawGet(string, "char") then
+        if string.char ~= rawGet(string, "char") then
+            freeze()
+        end
+    end
+
+    if table and table.concat and rawGet(table, "concat") then
+        if table.concat ~= rawGet(table, "concat") then
+            freeze()
+        end
+    end
+
+    if string and string.byte and rawGet(string, "byte") then
+        if string.byte ~= rawGet(string, "byte") then
+            freeze()
+        end
+    end
+end
+
+local function antiDebugCheck()
+    local dbg = debug
+    local getInfo = dbg and (dbg.info or dbg.getinfo)
+
+    if getInfo then
+        local ok = pcall(function()
+            error("", 2)
+        end)
+
+        if ok then
+            freeze()
+        end
+    end
+end
+
+antiTamper()
+antiDebugCheck()

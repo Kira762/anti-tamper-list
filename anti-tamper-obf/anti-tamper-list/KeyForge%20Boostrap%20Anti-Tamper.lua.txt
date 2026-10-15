@@ -1,0 +1,732 @@
+-- KeyForge Boostrap Anti-Tamper | Generated from Lua Land Hub | .gg/Zame2JAGDr
+		
+local TweenService=game:GetService("TweenService")
+local RunService=game:GetService("RunService")
+local UserInputService=game:GetService("UserInputService")
+local _kf_t=task or(type(wait)=="function"and{delay=function(s,f)if delay then delay(s,f)elseif f then f()end end}or{delay=function(_,f)if f then f()end end})
+local function isMobile()return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled end
+local function corner(i,r)local c=Instance.new("UICorner")c.CornerRadius=UDim.new(0,r)c.Parent=i end
+local function stroke(i,c,t,a)local s=Instance.new("UIStroke")s.Color=c s.Thickness=t or 1 s.Transparency=a or 0 s.Parent=i end
+local function smoothTween(i,p,t,e,d)return TweenService:Create(i,TweenInfo.new(t or 0.55,e or Enum.EasingStyle.Quint,d or Enum.EasingDirection.Out),p)end
+local function waitForLocalPlayer()
+	local Players=game:GetService("Players")
+	local plr=Players.LocalPlayer
+	if plr then return plr end
+	local t0=os.clock()
+	while not plr and (os.clock()-t0)<10 do
+		pcall(function() RunService.Heartbeat:Wait() end)
+		plr=Players.LocalPlayer
+	end
+	if not plr then
+		local ok,res=pcall(function() return Players.PlayerAdded:Wait() end)
+		if ok then plr=res end
+	end
+	return plr
+end
+local function scaleCard(card)
+	if isMobile()then
+		card.Size=UDim2.new(0.92,0,0,0)
+	else
+		card.Size=UDim2.fromOffset(380,0)
+	end
+	card.Position=UDim2.new(0.5,0,0.5,0)
+	card.AnchorPoint=Vector2.new(0.5,0.5)
+end
+local function ensureUiScale(card)
+	local s=card:FindFirstChild("KF_UIScale")
+	if s and s:IsA("UIScale") then return s end
+	s=Instance.new("UIScale")
+	s.Name="KF_UIScale"
+	s.Scale=1
+	s.Parent=card
+	return s
+end
+local function fadeChildrenIn(card,delaySec,dur,style)
+	local i=0
+	for _,ch in ipairs(card:GetDescendants())do
+		if ch:IsA("TextLabel")or ch:IsA("TextButton")or ch:IsA("TextBox")or ch:IsA("ImageLabel")then
+			i=i+1
+			local stagger=(style=="elegant")and(0.04*i)or 0
+			if ch:IsA("ImageLabel")then
+				local it=ch.ImageTransparency
+				ch.ImageTransparency=1
+				_kf_t.delay((delaySec or 0.08)+stagger,function()smoothTween(ch,{ImageTransparency=it},dur or 0.4,Enum.EasingStyle.Quint):Play()end)
+			else
+				local tt=ch.TextTransparency
+				ch.TextTransparency=1
+				_kf_t.delay((delaySec or 0.08)+stagger,function()smoothTween(ch,{TextTransparency=tt},dur or 0.4,Enum.EasingStyle.Quint):Play()end)
+			end
+		end
+	end
+end
+local function animateCardIn(card,strokeObj,style)
+	style=tostring(style or "modern")
+	card.BackgroundTransparency=1
+	if strokeObj then strokeObj.Transparency=1 end
+	local target=card.Position
+	local scale=ensureUiScale(card)
+	if style=="fade" then
+		card.Position=target
+		scale.Scale=1
+		smoothTween(card,{BackgroundTransparency=0.02},0.42,Enum.EasingStyle.Quad):Play()
+		if strokeObj then smoothTween(strokeObj,{Transparency=0.22},0.42,Enum.EasingStyle.Quad):Play() end
+		fadeChildrenIn(card,0.05,0.35,"fade")
+	elseif style=="elegant" then
+		card.Position=target
+		scale.Scale=0.94
+		smoothTween(card,{BackgroundTransparency=0.02},0.72,Enum.EasingStyle.Sine):Play()
+		smoothTween(scale,{Scale=1},0.78,Enum.EasingStyle.Sine):Play()
+		if strokeObj then smoothTween(strokeObj,{Transparency=0.22},0.72,Enum.EasingStyle.Sine):Play() end
+		fadeChildrenIn(card,0.12,0.55,"elegant")
+	elseif style=="pop" then
+		card.Position=target
+		scale.Scale=0.72
+		smoothTween(card,{BackgroundTransparency=0.02},0.38,Enum.EasingStyle.Back):Play()
+		smoothTween(scale,{Scale=1},0.48,Enum.EasingStyle.Back):Play()
+		if strokeObj then smoothTween(strokeObj,{Transparency=0.22},0.4,Enum.EasingStyle.Quad):Play() end
+		fadeChildrenIn(card,0.06,0.28,"pop")
+	elseif style=="slide" then
+		card.Position=target+UDim2.fromOffset(isMobile()and 48 or 72,0)
+		scale.Scale=1
+		smoothTween(card,{Position=target,BackgroundTransparency=0.02},0.52,Enum.EasingStyle.Quint):Play()
+		if strokeObj then smoothTween(strokeObj,{Transparency=0.22},0.52,Enum.EasingStyle.Quint):Play() end
+		fadeChildrenIn(card,0.08,0.4,"slide")
+	else
+		card.Position=target+UDim2.fromOffset(0,28)
+		scale.Scale=1
+		smoothTween(card,{Position=target,BackgroundTransparency=0.02},0.58,Enum.EasingStyle.Quint):Play()
+		if strokeObj then smoothTween(strokeObj,{Transparency=0.22},0.58,Enum.EasingStyle.Quint):Play() end
+		fadeChildrenIn(card,0.1,0.45,"modern")
+	end
+end
+local function copyToClipboard(text)
+	if type(text)~="string" or text=="" then return false end
+	local copied=false
+	pcall(function() if setclipboard then setclipboard(text) copied=true end end)
+	pcall(function() if not copied and toclipboard then toclipboard(text) copied=true end end)
+	pcall(function() if not copied and syn and type(syn.write_clipboard)=="function" then syn.write_clipboard(text) copied=true end end)
+	pcall(function() if not copied and syn and type(syn.setclipboard)=="function" then syn.setclipboard(text) copied=true end end)
+	return copied
+end
+local function keySavePath(storageId)
+	local id=tostring(storageId or "default"):gsub("[^%w%-_]",""):sub(1,80)
+	return "keyforge/keys/"..id..".txt"
+end
+local function loadSavedKey(storageId)
+	local path=keySavePath(storageId)
+	local ok,val=pcall(function()
+		if not (isfile and readfile and isfile(path)) then return nil end
+		local raw=readfile(path)
+		if type(raw)~="string" then return nil end
+		raw=raw:gsub("^%s+",""):gsub("%s+$","")
+		if #raw<4 then return nil end
+		return raw
+	end)
+	return ok and val or nil
+end
+local function saveKey(storageId,key)
+	if type(key)~="string" or #key<4 then return end
+	local path=keySavePath(storageId)
+	pcall(function()
+		if not writefile then return end
+		if makefolder then pcall(makefolder,"keyforge") pcall(makefolder,"keyforge/keys") end
+		writefile(path,key)
+	end)
+end
+local function clearSavedKey(storageId)
+	local path=keySavePath(storageId)
+	pcall(function()
+		if delfile and isfile and isfile(path) then delfile(path) end
+	end)
+end
+-- Overlay only: never a UIListLayout child and never Scale size on an AutomaticSize card
+-- (Scale(1,1) inside AutomaticSize.Y was stretching the key GUI to full screen height).
+local function spawnKeyParticles(card,content,style,accent)
+	if style=="none" or style=="" or not card or not content then return end
+	local layer=Instance.new("Frame")
+	layer.Name="KF_Particles"
+	layer.BackgroundTransparency=1
+	layer.BorderSizePixel=0
+	layer.Position=UDim2.fromOffset(0,0)
+	layer.Size=UDim2.fromOffset(0,0)
+	layer.ClipsDescendants=true
+	layer.ZIndex=0
+	layer.Parent=card
+	local function syncSize()
+		local sz=content.AbsoluteSize
+		layer.Size=UDim2.fromOffset(math.max(1,math.floor(sz.X+0.5)),math.max(1,math.floor(sz.Y+0.5)))
+	end
+	syncSize()
+	content:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncSize)
+	local count=isMobile()and 10 or 16
+	local parts={}
+	for i=1,count do
+		local d=Instance.new("Frame")
+		local sz=(style=="stars")and math.random(2,3)or math.random(2,5)
+		d.Size=UDim2.fromOffset(sz,sz)
+		d.BorderSizePixel=0
+		d.BackgroundColor3=accent
+		d.BackgroundTransparency=math.random(20,55)/100
+		d.ZIndex=0
+		d.Parent=layer
+		corner(d,99)
+		parts[i]={
+			f=d,
+			x=math.random(),
+			y=math.random(),
+			sp=(style=="snow"and 0.04 or 0.07)+math.random()*0.08,
+			drift=(math.random()-0.5)*0.04,
+			phase=math.random()*6.28,
+		}
+		d.Position=UDim2.fromScale(parts[i].x,parts[i].y)
+	end
+	local conn
+	conn=RunService.RenderStepped:Connect(function(dt)
+		if not layer.Parent then if conn then conn:Disconnect() end return end
+		for _,p in ipairs(parts)do
+			if style=="embers" or style=="sparks" then
+				p.y=p.y-p.sp*dt
+				p.x=p.x+p.drift*dt
+				if p.y<-0.05 then p.y=1.05 p.x=math.random() end
+			elseif style=="snow" then
+				p.y=p.y+p.sp*dt
+				p.x=p.x+math.sin(os.clock()*1.4+p.phase)*0.01*dt*60
+				if p.y>1.05 then p.y=-0.05 p.x=math.random() end
+			else
+				local pulse=0.35+0.45*math.abs(math.sin(os.clock()*2.2+p.phase))
+				p.f.BackgroundTransparency=pulse
+			end
+			if p.x<0 then p.x=1 elseif p.x>1 then p.x=0 end
+			p.f.Position=UDim2.fromScale(p.x,p.y)
+		end
+	end)
+end
+local function buildKeyEntryGui(onSubmit,getKeyUrl,storageId,discordUrl)
+	local plr=waitForLocalPlayer()
+	if not plr or type(onSubmit)~="function" then return { dismiss=function()end } end
+	local gui=Instance.new("ScreenGui")
+	gui.Name="KeyForge_KeyEntry"
+	gui.ResetOnSpawn=false
+	gui.IgnoreGuiInset=true
+	gui.DisplayOrder=220
+	gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+	gui.Parent=plr:WaitForChild("PlayerGui")
+	local dim=Instance.new("Frame")
+	dim.Size=UDim2.fromScale(1,1)
+	dim.BackgroundColor3=Color3.fromRGB(0,0,0)
+	dim.BackgroundTransparency=0.42
+	dim.BorderSizePixel=0
+	dim.Visible=true
+	dim.Parent=gui
+	local card=Instance.new("Frame")
+	card.BackgroundColor3=Color3.fromRGB(18,20,18)
+	card.BorderSizePixel=0
+	card.AutomaticSize=Enum.AutomaticSize.Y
+	card.ClipsDescendants=true
+	card.Parent=gui
+	scaleCard(card)
+	corner(card,18)
+	local cardStroke=stroke(card,Color3.fromRGB(90,55,140),2.2,0.35)
+	stroke(card,Color3.fromRGB(201,5,255),4.5,0.78)
+	local content=Instance.new("Frame")
+	content.Name="KF_Content"
+	content.BackgroundTransparency=1
+	content.BorderSizePixel=0
+	content.Size=UDim2.new(1,0,0,0)
+	content.AutomaticSize=Enum.AutomaticSize.Y
+	content.ZIndex=1
+	content.Parent=card
+	local pad=Instance.new("UIPadding")
+	pad.PaddingTop=UDim.new(0,20)
+	pad.PaddingBottom=UDim.new(0,20)
+	pad.PaddingLeft=UDim.new(0,20)
+	pad.PaddingRight=UDim.new(0,20)
+	pad.Parent=content
+	local list=Instance.new("UIListLayout")
+	list.Padding=UDim.new(0,12)
+	list.SortOrder=Enum.SortOrder.LayoutOrder
+	list.HorizontalAlignment=Enum.HorizontalAlignment.Center
+	list.Parent=content
+	spawnKeyParticles(card,content,"snow",Color3.fromRGB(201,5,255))
+	local accent=Instance.new("Frame")
+	accent.Size=UDim2.new(1,0,0,4)
+	accent.BackgroundColor3=Color3.fromRGB(201,5,255)
+	accent.BorderSizePixel=0
+	accent.ZIndex=2
+	accent.LayoutOrder=1
+	accent.Parent=content
+	corner(accent,6)
+	local logo=Instance.new("ImageLabel")
+	logo.BackgroundTransparency=1
+	logo.Size=UDim2.fromOffset(isMobile()and 52 or 48,isMobile()and 52 or 48)
+	logo.Image="https://raw.githubusercontent.com/Lilwero20/KatoHub/refs/heads/main/logo.png"
+	logo.ImageTransparency=0
+	logo.ScaleType=Enum.ScaleType.Fit
+	logo.ZIndex=2
+	logo.LayoutOrder=2
+	logo.Parent=content
+	corner(logo,10)
+	local title=Instance.new("TextLabel")
+	title.BackgroundTransparency=1
+	title.Size=UDim2.new(1,0,0,30)
+	title.Font=Enum.Font.GothamBlack
+	title.Text="KatoHub"
+	title.TextColor3=Color3.fromRGB(240,235,250)
+	title.TextSize=isMobile()and 24 or 22
+	title.TextWrapped=true
+	title.ZIndex=2
+	title.LayoutOrder=3
+	title.Parent=content
+	local sub=Instance.new("TextLabel")
+	sub.BackgroundTransparency=1
+	sub.Size=UDim2.new(1,0,0,20)
+	sub.Font=Enum.Font.Gotham
+	sub.Text="Enter your license key"
+	sub.TextColor3=Color3.fromRGB(148,154,170)
+	sub.TextSize=isMobile()and 13 or 12
+	sub.TextWrapped=true
+	sub.ZIndex=2
+	sub.LayoutOrder=4
+	sub.Parent=content
+	local box=Instance.new("TextBox")
+	box.Size=UDim2.new(1,0,0,isMobile()and 46 or 42)
+	box.BackgroundColor3=Color3.fromRGB(26,17,40)
+	box.Text=""
+	box.PlaceholderText="ENTER KEY"
+	box.PlaceholderColor3=Color3.fromRGB(98,104,118)
+	box.TextColor3=Color3.fromRGB(245,246,250)
+	box.Font=Enum.Font.GothamMedium
+	box.TextSize=isMobile()and 15 or 14
+	box.ClearTextOnFocus=false
+	box.ZIndex=2
+	box.LayoutOrder=5
+	box.Parent=content
+	corner(box,13)
+	stroke(box,Color3.fromRGB(90,55,140),1,0.62)
+	local savedKey=loadSavedKey(storageId)
+	if savedKey then box.Text=savedKey end
+	local cancelAutoSubmit=false
+	local status=Instance.new("TextLabel")
+	status.BackgroundTransparency=1
+	status.Size=UDim2.new(1,0,0,18)
+	status.Font=Enum.Font.GothamMedium
+	status.Text=""
+	status.TextColor3=Color3.fromRGB(255,120,120)
+	status.TextSize=11
+	status.TextWrapped=true
+	status.ZIndex=2
+	status.LayoutOrder=6
+	status.Parent=content
+	local rowH=isMobile()and 48 or 44
+	local hasGetKey=type(getKeyUrl)=="string" and #getKeyUrl>4
+	local hasDiscord=type(discordUrl)=="string" and #discordUrl>4
+	local optCount=(hasGetKey and 1 or 0)+(hasDiscord and 1 or 0)
+	local actions=Instance.new("Frame")
+	actions.Size=UDim2.new(1,0,0,0)
+	actions.AutomaticSize=Enum.AutomaticSize.Y
+	actions.BackgroundTransparency=1
+	actions.ZIndex=2
+	actions.LayoutOrder=7
+	actions.Parent=content
+	local actionsList=Instance.new("UIListLayout")
+	actionsList.FillDirection=Enum.FillDirection.Vertical
+	actionsList.Padding=UDim.new(0,8)
+	actionsList.SortOrder=Enum.SortOrder.LayoutOrder
+	actionsList.Parent=actions
+	local optRow=Instance.new("Frame")
+	optRow.Size=UDim2.new(1,0,0,rowH)
+	optRow.BackgroundTransparency=1
+	optRow.Visible=optCount>0
+	optRow.ZIndex=2
+	optRow.LayoutOrder=1
+	optRow.Parent=actions
+	local optList=Instance.new("UIListLayout")
+	optList.FillDirection=Enum.FillDirection.Horizontal
+	optList.Padding=UDim.new(0,8)
+	optList.SortOrder=Enum.SortOrder.LayoutOrder
+	optList.Parent=optRow
+	local getKey=Instance.new("TextButton")
+	getKey.Size=UDim2.new(optCount==2 and 0.5 or 1,optCount==2 and -4 or 0,1,0)
+	getKey.BackgroundColor3=Color3.fromRGB(54,60,78)
+	getKey.Text="GET KEY"
+	getKey.TextColor3=Color3.fromRGB(230,234,242)
+	getKey.Font=Enum.Font.GothamBold
+	getKey.TextSize=isMobile()and 15 or 14
+	getKey.AutoButtonColor=false
+	getKey.Visible=hasGetKey
+	getKey.ZIndex=2
+	getKey.LayoutOrder=1
+	getKey.Parent=optRow
+	corner(getKey,13)
+	local discordBtn=Instance.new("TextButton")
+	discordBtn.Size=UDim2.new(optCount==2 and 0.5 or 1,optCount==2 and -4 or 0,1,0)
+	discordBtn.BackgroundColor3=Color3.fromRGB(88,101,242)
+	discordBtn.Text="JOIN DISCORD"
+	discordBtn.TextColor3=Color3.fromRGB(255,255,255)
+	discordBtn.Font=Enum.Font.GothamBold
+	discordBtn.TextSize=isMobile()and 14 or 13
+	discordBtn.AutoButtonColor=false
+	discordBtn.Visible=hasDiscord
+	discordBtn.ZIndex=2
+	discordBtn.LayoutOrder=2
+	discordBtn.Parent=optRow
+	corner(discordBtn,13)
+	local verify=Instance.new("TextButton")
+	verify.Size=UDim2.new(1,0,0,rowH)
+	verify.BackgroundColor3=Color3.fromRGB(236,238,245)
+	verify.Text="VERIFY"
+	verify.TextColor3=Color3.fromRGB(18,20,28)
+	verify.Font=Enum.Font.GothamBold
+	verify.TextSize=isMobile()and 15 or 14
+	verify.AutoButtonColor=false
+	verify.ZIndex=2
+	verify.LayoutOrder=2
+	verify.Parent=actions
+	corner(verify,13)
+	local clearBtn=Instance.new("TextButton")
+	clearBtn.BackgroundTransparency=1
+	clearBtn.Size=UDim2.new(1,0,0,16)
+	clearBtn.Font=Enum.Font.GothamMedium
+	clearBtn.Text="Clear saved key"
+	clearBtn.TextColor3=Color3.fromRGB(148,154,170)
+	clearBtn.TextSize=11
+	clearBtn.AutoButtonColor=false
+	clearBtn.ZIndex=2
+	clearBtn.LayoutOrder=8
+	clearBtn.Parent=content
+	clearBtn.MouseButton1Click:Connect(function()
+		cancelAutoSubmit=true
+		clearSavedKey(storageId)
+		box.Text=""
+		status.Text="Saved key cleared Ã¢â‚¬â€ enter your KeyForge key"
+	end)
+	local loadingLayer=Instance.new("Frame")
+	loadingLayer.Name="KF_Loading"
+	loadingLayer.BackgroundColor3=Color3.fromRGB(18,20,18)
+	loadingLayer.BackgroundTransparency=0.04
+	loadingLayer.BorderSizePixel=0
+	loadingLayer.Size=UDim2.new(1,0,0,0)
+	loadingLayer.AutomaticSize=Enum.AutomaticSize.Y
+	loadingLayer.Position=UDim2.fromOffset(0,0)
+	loadingLayer.Visible=false
+	loadingLayer.ZIndex=8
+	loadingLayer.Parent=card
+	corner(loadingLayer,18)
+	local loadPad=Instance.new("UIPadding")
+	loadPad.PaddingTop=UDim.new(0,isMobile()and 36 or 40)
+	loadPad.PaddingBottom=UDim.new(0,isMobile()and 36 or 40)
+	loadPad.PaddingLeft=UDim.new(0,isMobile()and 22 or 28)
+	loadPad.PaddingRight=UDim.new(0,isMobile()and 22 or 28)
+	loadPad.Parent=loadingLayer
+	local loadList=Instance.new("UIListLayout")
+	loadList.Padding=UDim.new(0,isMobile()and 14 or 16)
+	loadList.SortOrder=Enum.SortOrder.LayoutOrder
+	loadList.HorizontalAlignment=Enum.HorizontalAlignment.Center
+	loadList.VerticalAlignment=Enum.VerticalAlignment.Center
+	loadList.Parent=loadingLayer
+	local loadTitle=Instance.new("TextLabel")
+	loadTitle.BackgroundTransparency=1
+	loadTitle.Size=UDim2.new(1,0,0,isMobile()and 36 or 40)
+	loadTitle.Font=Enum.Font.GothamBlack
+	loadTitle.Text="Loading script"
+	loadTitle.TextColor3=Color3.fromRGB(240,235,250)
+	loadTitle.TextSize=isMobile()and 24 or 22
+	loadTitle.TextWrapped=true
+	loadTitle.TextXAlignment=Enum.TextXAlignment.Center
+	loadTitle.ZIndex=9
+	loadTitle.LayoutOrder=1
+	loadTitle.Parent=loadingLayer
+	local loadSub=Instance.new("TextLabel")
+	loadSub.BackgroundTransparency=1
+	loadSub.Size=UDim2.new(1,0,0,isMobile()and 44 or 40)
+	loadSub.Font=Enum.Font.Gotham
+	loadSub.Text="Please wait Ã¢â‚¬â€ do not close your executor"
+	loadSub.TextColor3=Color3.fromRGB(148,154,170)
+	loadSub.TextSize=isMobile()and 14 or 13
+	loadSub.TextWrapped=true
+	loadSub.TextXAlignment=Enum.TextXAlignment.Center
+	loadSub.ZIndex=9
+	loadSub.LayoutOrder=2
+	loadSub.Parent=loadingLayer
+	local barTrack=Instance.new("Frame")
+	barTrack.Size=UDim2.new(1,0,0,isMobile()and 10 or 8)
+	barTrack.BackgroundColor3=Color3.fromRGB(26,17,40)
+	barTrack.BorderSizePixel=0
+	barTrack.ZIndex=9
+	barTrack.LayoutOrder=3
+	barTrack.Parent=loadingLayer
+	corner(barTrack,6)
+	local barFill=Instance.new("Frame")
+	barFill.Size=UDim2.new(0.12,0,1,0)
+	barFill.BackgroundColor3=Color3.fromRGB(201,5,255)
+	barFill.BorderSizePixel=0
+	barFill.ZIndex=10
+	barFill.Parent=barTrack
+	corner(barFill,6)
+	local loadConn=nil
+	local function showKeyLoading(title,sub)
+		content.Visible=false
+		loadingLayer.Visible=true
+		loadTitle.Text=tostring(title or "")
+		loadSub.Text=tostring(sub or "")
+		local scale=ensureUiScale(card)
+		scale.Scale=isMobile()and 1.08 or 1.12
+		if loadConn then pcall(function() loadConn:Disconnect() end) loadConn=nil end
+		local p=0.1
+		barFill.Size=UDim2.new(p,0,1,0)
+		loadConn=RunService.Heartbeat:Connect(function(dt)
+			p=p+dt*0.2
+			if p>0.92 then p=0.1 end
+			barFill.Size=UDim2.new(p,0,1,0)
+		end)
+	end
+	local function hideKeyLoading()
+		if loadConn then pcall(function() loadConn:Disconnect() end) loadConn=nil end
+		loadingLayer.Visible=false
+		content.Visible=true
+		local scale=ensureUiScale(card)
+		scale.Scale=1
+	end
+	local getKeyLabel="GET KEY"
+	local verifyLabel="VERIFY"
+	local discordLabel="JOIN DISCORD"
+	local successMsg="Key accepted Ã¢â‚¬â€ loadingÃ¢â‚¬Â¦"
+	local validatingTitle="Validating keyÃ¢â‚¬Â¦"
+	local validatingSub="Please wait"
+	local loadingTitleText="Loading script"
+	local loadingSubText="Please wait Ã¢â‚¬â€ do not close your executor"
+	local savedKeyTitleText="Restoring saved keyÃ¢â‚¬Â¦"
+	if hasGetKey then
+		getKey.MouseButton1Click:Connect(function()
+			if copyToClipboard(getKeyUrl) then
+				status.Text="Link copied Ã¢â‚¬â€ paste in your browser"
+				getKey.Text="COPIED!"
+				_kf_t.delay(1.8,function() getKey.Text=getKeyLabel end)
+			else
+				status.Text="Could not copy link"
+			end
+		end)
+	end
+	if hasDiscord then
+		discordBtn.MouseButton1Click:Connect(function()
+			if copyToClipboard(discordUrl) then
+				status.Text="Discord invite copied Ã¢â‚¬â€ paste in your browser"
+				discordBtn.Text="COPIED!"
+				_kf_t.delay(1.8,function() discordBtn.Text=discordLabel end)
+			else
+				status.Text="Could not copy link"
+			end
+		end)
+	end
+	local busy=false
+	local submitFromSaved=false
+	local function submit()
+		if busy then return end
+		local key=tostring(box.Text or ""):gsub("^%s+",""):gsub("%s+$","")
+		if #key<4 then status.Text="Enter a valid license key" return end
+		busy=true
+		verify.Text="LOADING..."
+		status.Text=""
+		if submitFromSaved then
+			showKeyLoading(savedKeyTitleText,validatingSub)
+			submitFromSaved=false
+		else
+			showKeyLoading(validatingTitle,validatingSub)
+		end
+		_kf_t.delay(0.05,function()
+			local ok,err=pcall(function() onSubmit(key) end)
+			if ok then
+				if true then saveKey(storageId,key) end
+				showKeyLoading(loadingTitleText,loadingSubText)
+				status.Text=successMsg
+				_kf_t.delay(6,function() pcall(function() gui:Destroy() end) end)
+			else
+				busy=false
+				hideKeyLoading()
+				verify.Text=verifyLabel
+				clearSavedKey(storageId)
+				box.Text=""
+				local msg=tostring(err or "Failed")
+				if msg:sub(1,16)=="[Keyforge Auth] " then msg=msg:sub(17) end
+				local lower=msg:lower()
+				local keyLower=tostring(key or ""):lower()
+				if lower:find("invalid key")then
+					if keyLower:find("^https?://")or keyLower:find("keyforge%.win/a/")or keyLower:find("/a/katohub")then
+						msg="That is a link, not a key. Press GET KEY, finish every step, then paste the key text you are shown."
+					else
+						msg="Invalid key Ã¢â‚¬â€ old keys from other systems will not work. Get a new KeyForge key."
+					end
+				elseif lower:find("feff")or lower:find("byte%-order")or lower:find("unicode character")or lower:find("exhausted allowed execution")then
+					msg="Executor compatibility error Ã¢â‚¬â€ rejoin and try again, or update your executor"
+				elseif lower:find("attempt to index nil")and not lower:find("keyforge")then
+					msg="Executor compatibility error Ã¢â‚¬â€ rejoin and try again, or update your executor"
+				elseif lower:find("no loader function")then
+					msg="Executor compatibility error Ã¢â‚¬â€ update Xeno or try another executor"
+				elseif lower:find("locked to another")or lower:find("hwid")or lower:find("device identity")or lower:find("device lock")then
+					if not lower:find("reset hwid")then msg=msg.." Ã¢â‚¬â€ reset HWID in Discord or use the original device" end
+				end
+				status.Text=msg
+			end
+		end)
+	end
+	verify.MouseButton1Click:Connect(submit)
+	box.FocusLost:Connect(function(enter) if enter then submit() end end)
+	animateCardIn(card,cardStroke,"pop")
+	if true and savedKey then
+		status.Text="Saved key found Ã¢â‚¬â€ tap Clear saved key to use a different one"
+		_kf_t.delay(2.8,function()
+			if cancelAutoSubmit or busy then return end
+			submitFromSaved=true
+			submit()
+		end)
+	end
+	return { dismiss=function() pcall(function() gui:Destroy() end) end, setStatus=function(m) status.Text=tostring(m or "") end }
+end
+local KEY_LOAD_URL="https://www.keyforge.win/v1/load/cmrcc9kgs000004ldi547jrtq?e=1&script=cmrccaz5t000004lgzkwffrlm&lsig=DiYQPCh05Iw1I2mC8hBwc4z7prGHI5LN42nWltA-K00"
+local KEY_GET_URL="https://www.keyforge.win/a/katohub"
+local KEY_DISCORD_URL=""
+local KEY_STORAGE_ID="cmrcc9kgs000004ldi547jrtq_cmrccaz5t000004lgzkwffrlm"
+local function kfStripBom(s)
+  if type(s)~="string" or s=="" then return s end
+  if #s>=3 and s:byte(1)==239 and s:byte(2)==187 and s:byte(3)==191 then s=s:sub(4) end
+  if #s>=1 and s:sub(1,1)=="\u{FEFF}" then s=s:sub(2) end
+  return (s:gsub("\u{200B}",""):gsub("\u{200C}",""):gsub("\u{200D}",""):gsub("\u{FEFF}",""))
+end
+local function kfFetch(u)
+  local function fromHttpGet()
+    local ok,body=pcall(function()
+      if type(httpget)=="function" then return httpget(u) end
+      if game.HttpGetAsync then return game:HttpGetAsync(u) end
+      return game:HttpGet(u,true)
+    end)
+    if ok and type(body)=="string" and body~="" then return kfStripBom(body) end
+    if not ok and type(body)=="string" and body~="" then return nil,body end
+    return nil
+  end
+  local function fromRequest(fn)
+    if type(fn)~="function" then return nil end
+    local ok,res=pcall(function() return fn({Url=u,Method="GET",Headers={["X-KeyForge-Executor"]="1"}}) end)
+    if not ok or type(res)~="table" then return nil end
+    local status=res.StatusCode or res.status_code or 0
+    local body=res.Body or res.body
+    if type(body)~="string" then body=body and tostring(body) or "" end
+    body=kfStripBom(body)
+    if body~="" and (status==200 or body:find("KeyForge",1,true) or body:find("Keyforge",1,true)) then return body end
+    return nil
+  end
+  if type(Xeno)=="table" then
+    local body,err=fromHttpGet()
+    if body then return body end
+    body=fromRequest(Xeno.request or request)
+    if body then return body end
+    if err then return nil,err end
+  end
+  do
+    local body=fromRequest((type(Xeno)=="table" and (Xeno.request or request)) or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request) or request or http_request)
+    if body then return body end
+  end
+  do
+    local Hs=game:GetService("HttpService")
+    if Hs.RequestAsync then
+      local ok,res=pcall(function() return Hs:RequestAsync({Url=u,Method="GET",Headers={["X-KeyForge-Executor"]="1"}}) end)
+      if ok and type(res)=="table" then
+        local status=res.StatusCode or 0
+        local body=res.Body or ""
+        if type(body)=="string" then body=kfStripBom(body) end
+        if type(body)=="string" and body~="" and status==200 then return body end
+      end
+    end
+  end
+  local body,err=fromHttpGet()
+  if body then return body end
+  return nil,err or "failed to fetch loader"
+end
+local function kfTryLs(fn)
+  if type(fn)~="function" then return nil end
+  local ok,res=pcall(fn,"return 1")
+  if ok and type(res)=="function" then return fn end
+  ok,res=pcall(fn,"return 1","=kf","t")
+  if ok and type(res)=="function" then return fn end
+  local m=tostring(res or "")
+  if m:find("RobloxScript",1,true) or m:find("not available",1,true) then return nil end
+  return nil
+end
+local function kfPickLs(t)
+  if type(t)~="table" then return nil end
+  return kfTryLs(t.__cload) or kfTryLs(t.loadstring) or kfTryLs(t.load)
+end
+local function kfResolveGuiLoadstring()
+  if type(Xeno)=="table" then
+    local ls=kfPickLs(Xeno)
+    if ls then return ls end
+  end
+  if type(getgenv)=="function" then
+    local ok,ge=pcall(getgenv)
+    if ok then
+      local ls=kfPickLs(ge)
+      if ls then return ls end
+    end
+  end
+  if type(Opiumware)=="table" then
+    local ls=kfPickLs(Opiumware)
+    if ls then return ls end
+  end
+  if type(getrenv)=="function" then
+    local ok,re=pcall(getrenv)
+    if ok then
+      local ls=kfPickLs(re)
+      if ls then return ls end
+    end
+  end
+  return kfTryLs(loadstring) or kfTryLs(load)
+end
+local _kf_ls=kfResolveGuiLoadstring()
+local function fetchBootstrap(key)
+  local function kfEncodeKey(s)
+    return (tostring(s):gsub("([^%w%._~%-])", function(c)
+      return string.format("%%%02X", string.byte(c))
+    end))
+  end
+  local url=KEY_LOAD_URL.."&key="..kfEncodeKey(key).."&_cb="..tostring(os.clock()).."-"..tostring(math.random(0,2147483647))
+  local body, kfErr = kfFetch(url)
+  if not body then error(tostring(kfErr or "failed to fetch loader"), 0) end
+  body = kfStripBom(body)
+  local ls=_kf_ls or kfResolveGuiLoadstring()
+  assert(type(ls)=="function", "no loader function Ã¢â‚¬â€ update Xeno or try another executor")
+  local fn, err = ls(body)
+  if type(fn) ~= "function" then error(tostring(err or "invalid loader"), 0) end
+  local ge=(type(getgenv)=="function" and (function() local ok,g=pcall(getgenv) return ok and g or nil end)()) or _G
+  if type(ge)=="table" then
+    ge.__KF_GATE_OK=false
+    ge.__KF_GATE_FAIL=false
+    ge.__KF_GATE_ERR=nil
+  end
+  local spawnFn=(task and task.spawn) or spawn or function(f) if type(coroutine)=="table" and type(coroutine.wrap)=="function" then coroutine.wrap(f)() else f() end end
+  local waitFn=(task and task.wait) or wait
+  spawnFn(function()
+    local ok,runErr=pcall(fn)
+    if not ok then
+      local msg=tostring(runErr or "script failed")
+      pcall(function() if type(warn)=="function" then warn("[Keyforge Auth] "..msg) end end)
+      pcall(function() if type(print)=="function" then print("[Keyforge Auth] "..msg) end end)
+      if type(ge)=="table" and not ge.__KF_GATE_OK and not ge.__KF_GATE_FAIL then
+        ge.__KF_GATE_FAIL=true
+        ge.__KF_GATE_ERR=msg
+      end
+    end
+  end)
+  local deadline=(type(os)=="table" and type(os.clock)=="function" and (os.clock()+45)) or nil
+  while true do
+    if type(ge)=="table" then
+      if ge.__KF_GATE_FAIL then
+        error(tostring(ge.__KF_GATE_ERR or "authentication failed"), 0)
+      end
+      if ge.__KF_GATE_OK then return end
+    end
+    if deadline and type(os)=="table" and type(os.clock)=="function" and os.clock()>deadline then
+      error("authentication timed out Ã¢â‚¬â€ retry in a moment", 0)
+    end
+    if type(waitFn)=="function" then waitFn(0.05) else break end
+  end
+end
+buildKeyEntryGui(fetchBootstrap,KEY_GET_URL,KEY_STORAGE_ID,KEY_DISCORD_URL)

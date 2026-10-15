@@ -1,0 +1,230 @@
+local AntiTamper = {}
+
+local function fail(reason)
+    AntiTamper.triggered = true
+    AntiTamper.reason = reason
+    return false
+end
+
+AntiTamper.triggered = false
+AntiTamper.reason = nil
+
+function AntiTamper.checkPlaceId()
+    local ok, placeId = pcall(function()
+        return game["PlaceId"]
+    end)
+
+    if not ok then
+        return fail("PlaceId access failed")
+    end
+
+    if typeof(placeId) ~= "number" then
+        return fail("PlaceId type mismatch")
+    end
+
+    return true
+end
+
+function AntiTamper.checkGameEnvironment()
+    local env = getfenv()
+    local gameObject = env["game"]
+
+    if typeof(gameObject) ~= "Instance" then
+        return fail("game environment mismatch")
+    end
+
+    return true
+end
+
+function AntiTamper.checkLoadstring()
+    local ok = pcall(function()
+        loadstring(3)()
+    end)
+
+    AntiTamper.loadstringProbe = ok
+
+    return true
+end
+
+function AntiTamper.checkErrorStack()
+    local ok, message = pcall(function()
+        error("")
+    end)
+
+    if ok then
+        return fail("error probe unexpectedly succeeded")
+    end
+
+    local text = tostring(message)
+    local line = text:match(":(%d+):")
+
+    if not line then
+        line = text:match(":(%d+)")
+    end
+
+    local number = tonumber(line)
+
+    if number ~= 2 then
+        return fail("error stack fingerprint mismatch")
+    end
+
+    return true
+end
+
+function AntiTamper.checkEnvironmentMetatable()
+    local env = getfenv()
+
+    local mt = {
+        __tostring = function()
+            return ""
+        end,
+
+        __metatable = false,
+
+        __pairs = function()
+            return function()
+                return nil
+            end
+        end,
+
+        __ipairs = function()
+            return function()
+                return nil
+            end
+        end,
+
+        __len = function()
+            return 0
+        end,
+
+        __call = function()
+            return nil
+        end,
+
+        __eq = function()
+            return false
+        end,
+
+        __lt = function()
+            return false
+        end,
+
+        __le = function()
+            return false
+        end,
+    }
+
+    local ok = pcall(function()
+        setmetatable(env, mt)
+    end)
+
+    AntiTamper.metatableProbe = ok
+
+    return true
+end
+
+function AntiTamper.checkNumber(value)
+    if value ~= value then
+        return fail("NaN state detected")
+    end
+
+    return true
+end
+
+function AntiTamper.checkFunctionReferences(expected, current)
+    if type(expected) ~= "table" or type(current) ~= "table" then
+        return fail("integrity table mismatch")
+    end
+
+    for name, expectedFunction in pairs(expected) do
+        if current[name] ~= expectedFunction then
+            return fail("function reference mismatch: " .. tostring(name))
+        end
+    end
+
+    return true
+end
+
+function AntiTamper.hashInstructions(instructions)
+    local hash = 0
+
+    for index, instruction in ipairs(instructions) do
+        local opcode = instruction.opcode or 0
+        local a = instruction.a or 0
+        local b = instruction.b or 0
+        local c = instruction.c or 0
+
+        hash = (
+            hash * 0x1000193
+            + opcode
+            + a
+            + b
+            + c
+            + index
+        ) % 4294967296
+    end
+
+    return hash
+end
+
+function AntiTamper.checkInstructions(instructions, expectedHash)
+    local actual = AntiTamper.hashInstructions(instructions)
+
+    if actual ~= expectedHash then
+        return fail("instruction integrity mismatch")
+    end
+
+    return true
+end
+
+function AntiTamper.periodicCheck(
+    instructionIndex,
+    opcode,
+    instructions,
+    expectedHash
+)
+    if instructionIndex % 45 ~= 0 then
+        return true
+    end
+
+    local watched = {
+        [23] = true,
+        [16] = true,
+        [21] = true,
+        [3] = true,
+        [17] = true,
+        [48] = true,
+        [24] = true,
+    }
+
+    if not watched[opcode] then
+        return true
+    end
+
+    return AntiTamper.checkInstructions(
+        instructions,
+        expectedHash
+    )
+end
+
+function AntiTamper.runEnvironmentChecks()
+    if not AntiTamper.checkPlaceId() then
+        return false
+    end
+
+    if not AntiTamper.checkGameEnvironment() then
+        return false
+    end
+
+    if not AntiTamper.checkErrorStack() then
+        return false
+    end
+
+    AntiTamper.checkLoadstring()
+    AntiTamper.checkEnvironmentMetatable()
+
+    return not AntiTamper.triggered
+end
+
+return AntiTamper
+-- @sxy.com

@@ -1,0 +1,33 @@
+name: Luau runtime regressions
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LUAU_VERSION: "0.742"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned stock Luau CLI
+        shell: bash
+        run: |
+          curl --fail --location --silent --show-error --retry 3 \
+            "https://codeload.github.com/luau-lang/luau/tar.gz/refs/tags/${LUAU_VERSION}" \
+            -o "$RUNNER_TEMP/luau.tar.gz"
+          tar -xzf "$RUNNER_TEMP/luau.tar.gz" -C "$RUNNER_TEMP"
+          make -C "$RUNNER_TEMP/luau-${LUAU_VERSION}" -j2 config=release luau luau-compile
+      - name: Compile and run regressions at all optimization levels
+        shell: bash
+        run: |
+          for optimization in 0 1 2; do
+            python3 tests/run.py --optimization "$optimization" \
+              --luau "$RUNNER_TEMP/luau-${LUAU_VERSION}/luau" \
+              --compile "$RUNNER_TEMP/luau-${LUAU_VERSION}/luau-compile"
+          done

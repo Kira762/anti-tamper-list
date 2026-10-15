@@ -1,0 +1,400 @@
+-- leaked by axom at https://discord.gg/Sps39CydcZ
+do
+    local v54 = f3("IpbRlj8", "ad", "__div", "__sub", "__concat", 33069, "__pow", 28715.833333333, "__mul", 77077.5, "__add", 12943.5)
+    for m = 0, 4 do
+        if m == 0 then
+            (v53 - "Yl")(v54 / true)
+        elseif m == 2 then
+            (v53 - "cH")(v54 / false)
+        elseif m == 4 then
+            (v53 - "Ko")(v54 / false)
+        end
+    end
+    (v53 - "pi")(v54 / true)
+    local v55 = f3(getfenv and getfenv() or _ENV, "il", "__pow", "__concat", "__mul", 885434, "__div", 2637.25, "__add", 2453.6666666667, "__sub", true)
+    local v56 = f3((v55 .. "Ihb").debug, "AL", "__pow", "__mul", "__concat", 5295.1666666667, "__sub", 27393)
+    local v57 = f3((v55 .. "Gt").pcall, "xT", "__concat", "__add", "__div", 533505, "__mul", true, "__sub", 24420)
+    local v58 = f3(string.gmatch, "kl", "__add", "__mul", "__sub", 52213.5, "__div", false, "__concat", 297695.5)
+    local v59 = f3(false, "mcb", "__mul", "__pow", "__sub", 430594, "__div", true)
+    local v60 = f3(function()
+        local v61 = {
+            Db = function(p12, p13, p14, p15, p16, p17, p18, p19, p20, p21) return f1(p13 + 4175) end,
+            jc = function(p22, p23, p24, p25, p26, p27, p28, p29, p30, p31) return f1(p24 - 38238) end,
+            Nc = function(p32, p33, p34, p35, p36, p37, p38, p39, p40, p41) return f1(p32 - 5062) end,
+            Yc = function(p42, p43, p44, p45, p46, p47, p48, p49, p50, p51) return f1(p42 - 22934) end,
+            dd = function(p52, p53, p54, p55, p56, p57, p58, p59, p60, p61) return f1(p54 - 41015) end,
+        }
+        if v59 ^ v61.Db(24721, 24418, 23769, 24808, 24551, 24338, 24183, 24612, 25319, 23574) then end
+        error(v61.Yc(51563, 52311, 51679, 51751, 51503, 51187, 50620, 50680, 50734, 51828))
+    end, "G_", "__mul", "__div", "__add", 11968.9)
+    local v62 = f3(math.random, "ux", "__div", "__concat", "__pow", 226362.5)
+    local v63 = f3(table and table.unpack or unpack, "hj", "__pow", "__mul", "__div", 11305.5, "__concat", 314252)
+    local v64 = f3((v62 .. "Hw")(3, 65), "Tlb", "__sub", "__div", "__pow", 3353.5833333333, "__concat", 417588, "__mul", 4832.2857142857)
+    local v65 = f3(0, "w3", "__mul", "__sub", "__concat", true)
+    local v66 = f3(0, "uob", "__sub", "__add", "__div", 2374.5)
+    local v67 = f3((f3({(v57 + "rA")(function()
+        local v68 = {
+            Nc = function(p62, p63, p64, p65, p66, p67, p68, p69, p70, p71) return f1(p71 + 50572) end,
+            Sb = function(p72, p73, p74, p75, p76, p77, p78, p79, p80, p81) return f1(p76 - 5343) end,
+            hc = function(p82, p83, p84, p85, p86, p87, p88, p89, p90, p91) return f1(p83 + 28263) end,
+            qc = function(p92, p93, p94, p95, p96, p97, p98, p99, p100, p101) return f1(p93 - 59171) end,
+            Qb = function(p102, p103, p104, p105, p106, p107, p108, p109, p110, p111) return f1(p109 + 1513) end,
+        }
+        local v69 = f3(6206119 - v68.Qb(27771, 26713, 26144, 27383, 27183, 26562, 28113, 27143, 26974, 27012) ^ 9712133, v68.Sb(33282, 34466, 34278, 34261, 33947, 33760, 32940, 34892, 33013, 33102), v68.hc(778, 452, -126, -375, 826, 345, -248, 1083, -335, 1211), v68.Nc(-20992, -22676, -22358, -21844, -21764, -22259, -22179, -21819, -22861, -22009), v68.Nc(-21147, -21246, -21648, -22121, -22393, -23133, -22054, -21752, -21666, -22128), 757886, v68.hc(-432, 385, -83, 1025, 1350, -101, 777, 587, 668, 20), 37002.2)
+        return v68.hc(383, 324, 1029, -605, 738, 614, -511, 305, 929, -330) / v69 ^ v68.qc(88455, 87614, 88336, 87516, 87449, 88442, 87446, 88092, 88575, 86914)
+    end),}, "kM", "__add", "__mul", "__pow", 216438, "__sub", 5653.28571428571, "__concat", false) * "cjb")[2], "Xcb", "__concat", "__mul", "__add", false, "__pow", 413395.5)
+    local v70 = f3(tonumber((v58 * "QT")(tostring(v67 * "Qh"), ":(%d*):")()), "w_", "__pow", "__div", "__mul", 133054)
+    for n = 1, v64 / "gpb" do
+        local v71 = f3((v62 .. "u6")(1, 100), "yg", "__div", "__concat", "__add", 1741.5, "__mul", true, "__sub", 432462.5)
+        local v72 = f3((v62 .. "OT")(0, 255), "tk", "__add", "__div", "__pow", 22050, "__sub", 10337.3333333333, "__mul", false, "__concat", 13978.153846154)
+        local v73 = f3((v62 .. "ms")(1, v71 .. "Sy"), "Tkb", "__concat", "__mul", "__div", 319370.5, "__sub", 66772.5, "__pow", 55084.5, "__add", 241374)
+        local v74 = f3((v62 .. "lv")(1, 2) == 1, "vdb", "__div", "__sub", "__add", 9096.2, "__concat", 11785.636363636, "__mul", 19420.714285714, "__pow", 484806)
+        local v75 = f3((v67 * "fb"):gsub(":(%d*):", ":" .. tostring((v62 .. "oG")(0, 10000)) .. ":"), "zcb", "__sub", "__div", "__add", 656.8, "__mul", 465.78571428571)
+        local v76 = f3({(v57 + "Vk")(function()
+            if (v62 .. "TG")(1, 2) == 1 or n == v64 / "de" then
+                local v77 = f3(tonumber((v58 * "wib")(tostring(({(v57 + "Dh")(function()
+                    return "mT1dbixZRaZJsI" / (f3(2400840 - "FCnFJF" ^ 5769708, "oj", "__concat", "__sub", "__mul", 119262, "__pow", 63441, "__div", 4854.1666666667, "__add", false) - "H3")
+                end),})[2]), ":(%d*):")()), "Hn", "__div", "__add", "__pow", false, "__mul", 36969)
+                (v53 - "af")(v54 / (v54 - "w8" and v70 / "Tn" == v77 + "C1"))
+            end
+            if v74 - "Vcb" then
+                error(v75 / "klb", 0)
+            end
+            local v78 = f3({}, "Ax", "__pow", "__mul", "__sub", 330372, "__add", false)
+            for i6 = 1, v71 .. "mY" do
+                (v78 * "hL")[i6] = (v62 .. "s0")(0, 255)
+            end
+            (v78 * "wfb")[v73 * "Ohb"] = v72 / "Iw"
+            return (v63 * "KM")(v78 * "hA")
+        end),}, "aJ", "__div", "__mul", "__add", 493119.5, "__concat", 139240, "__sub", false, "__pow", true)
+        if v74 - "Tmb" then
+            (v53 - "C_")(v54 / (v54 - "Hf" and (v76 * "aM")[1] == false and (v76 * "Ul")[2] == v75 / "kY"))
+        else
+            (v53 - "Ee")(v54 / (v54 - "RZ" and (v76 * "ZH")[1]))
+            (v53 - "zp")(v65 * ((v65 - "sbb" + (v76 * "Ym")[v73 * "Q0" + 1]) % 256))
+            (v53 - "rT")(v66 - (v66 + "F1" + v72 / "yV") % 256)
+        end
+    end
+    (v53 - "meb")(v54 / (v54 - "af" and v65 - "Dp" == v66 + "Sc"))
+    local v79 = f3(rawget and rawget(_G, "getfenv"), "SZ", "__mul", "__div", "__add", 293129, "__pow", 29583)
+    if v79 / "fE" then
+        (v53 - "fg")(v79 * (v79 / "Jo")())
+        local v80 = f3(getmetatable(v79 / "Gi"), "cdb", "__concat", "__sub", "__pow", false, "__add", 758699, "__mul", true)
+        local v81 = f3(v80 - "Nk" and (v80 - "Hk").__index, "FD", "__div", "__pow", "__concat", false, "__sub", 65119.5, "__mul", 717559, "__add", 2017)
+        if not (f3(v81 ^ "dA" and (v57 + "bN")(function() return next(v81 ^ "Az") end), "g8", "__div", "__mul", "__sub", 440921.5) * "bq") or not (v81 ^ "xlb").warn or not (v81 ^ "Ot").print then
+            (v53 - "Ax")(v54 / false)
+        end
+    end
+    if type(game) ~= "nil" then
+        if not (f3(pcall(function()
+            if (f3(runService, "j_", "__concat", "__pow", "__div", false, "__add", 160346, "__sub", 6669) ^ "AX"):IsStudio() then
+                return nil
+            end
+            if f3(game:FindService("AccountService"), "hs", "__pow", "__sub", "__concat", 43615.5, "__add", 5019.7333333333, "__mul", 1672.5) - "ad" ~= nil then
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+        end), "L5", "__sub", "__mul", "__add", 497679.5) * "Fr") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v82 = {
+                O = function(p112, p113, p114, p115, p116, p117, p118, p119, p120, p121) return f1(p117 + 8023) end,
+                Hc = function(p122, p123, p124, p125, p126, p127, p128, p129, p130, p131) return f1(p130 + 11293) end,
+                q = function(p132, p133, p134, p135, p136, p137, p138, p139, p140, p141) return f1(p138 + 8376) end,
+                C = function(p142, p143, p144, p145, p146, p147, p148, p149, p150, p151) return f1(p145 - 45077) end,
+                vb = function(p152, p153, p154, p155, p156, p157, p158, p159, p160, p161) return f1(p152 + 28013) end,
+            }
+            if f3((f3(function(p162)
+                local v83 = {
+                    Z = function(p163, p164, p165, p166, p167, p168, p169, p170, p171, p172) return f1(p164 + 1920) end,
+                    Nc = function(p173, p174, p175, p176, p177, p178, p179, p180, p181, p182) return f1(p174 - 49797) end,
+                    bb = function(p183, p184, p185, p186, p187, p188, p189, p190, p191, p192) return f1(p186 - 58078) end,
+                    Qc = function(p193, p194, p195, p196, p197, p198, p199, p200, p201, p202) return f1(p199 - 52165) end,
+                    dc = function(p203, p204, p205, p206, p207, p208, p209, p210, p211, p212) return f1(p210 - 62418) end,
+                }
+                if typeof(Path2DControlPoint) ~= v83.bb(85975, 86459, 87624, 86673, 86128, 87013, 87113, 87543, 87432, 85695) or type(Path2DControlPoint[v83.bb(86836, 86403, 87036, 86594, 86443, 86276, 86286, 85620, 86130, 85585)]) ~= v83.Qc(81631, 80099, 79876, 80202, 81123, 81446, 80731, 81527, 81404, 79859) then
+                    error(v83.Nc(78502, 78426, 78688, 78967, 78940, 78598, 77857, 77739, 77601, 78909), 0)
+                    return nil
+                end
+                local v84, v85 = pcall(function() return Path2DControlPoint.new(p162) end)
+                if not v84 then
+                    error(v83.Nc(78518, 78426, 78948, 78781, 78517, 79235, 78915, 79283, 78889, 79330), 0)
+                    return nil
+                end
+                return v85
+            end, v82.vb(661, 1300, -270, 649, 1378, 249, -332, -230, 444, -360), v82.C(73989, 72649, 74034, 73640, 73216, 73603, 74174, 74454, 72659, 73884), v82.Hc(17193, 17505, 18188, 16945, 17257, 17490, 16713, 16723, 17422, 17856), v82.C(74480, 74424, 73678, 73764, 73302, 72766, 72842, 73206, 74551, 73158), 1953, v82.q(20587, 20564, 20134, 20954, 19692, 20448, 20288, 19414, 19998, 20238), true, v82.vb(431, -163, -47, -466, 1038, 578, 729, 211, 959, 598), 193151, v82.C(74412, 74728, 73028, 73725, 74493, 73198, 73755, 73065, 74737, 74201), 30436.5) / v82.q(20017, 20954, 21206, 21105, 19423, 20535, 20328, 19858, 21134, 21045))(UDim2[v82.q(19714, 20341, 19852, 19299, 21178, 20583, 20319, 20250, 19296, 20565)](0.5, 0.5)), v82.C(74375, 72635, 73208, 73654, 73118, 73324, 73712, 72692, 73195, 72768), v82.Hc(18079, 18387, 17625, 17396, 16618, 16743, 16659, 18064, 17394, 18184), v82.Hc(17382, 17311, 17975, 18191, 17861, 17458, 17574, 17942, 17270, 17932), v82.Hc(17353, 17708, 17895, 17933, 17873, 16371, 17415, 17663, 17151, 17075), 12853.928571429, v82.vb(651, -200, 930, 1178, 446, 519, 1411, 1170, 1089, 1111), true) ^ v82.O(20297, 20564, 20505, 21129, 19795, 20665, 19915, 19744, 20171, 20706) == nil then
+                error(v82.q(19960, 19997, 20119, 20879, 21034, 20006, 20253, 20877, 19893, 20667), 0)
+                return nil
+            end
+        end), "Yb", "__add", "__concat", "__pow", 19461, "__div", 291546, "__mul", 57387, "__sub", false) .. "t0") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v86 = f3(false, "Mib", "__add", "__sub", "__mul", 401674.5, "__concat", 401809, "__div", 24065)
+            if typeof(Path2DControlPoint) ~= "table" or type(Path2DControlPoint.new) ~= "function" then
+                (v53 - "Py")(v86 + true)
+            elseif not f3(pcall(function()
+                local v87 = {
+                    xb = function(p213, p214, p215, p216, p217, p218, p219, p220, p221, p222) return f1(p218 + 46018) end,
+                    wb = function(p223, p224, p225, p226, p227, p228, p229, p230, p231, p232) return f1(p225 - 51162) end,
+                    O = function(p233, p234, p235, p236, p237, p238, p239, p240, p241, p242) return f1(p241 - 35219) end,
+                    p = function(p243, p244, p245, p246, p247, p248, p249, p250, p251, p252) return f1(p243 + 25606) end,
+                    I = function(p253, p254, p255, p256, p257, p258, p259, p260, p261, p262) return f1(p255 + 12272) end,
+                }
+                return Path2DControlPoint[v87.wb(79805, 79449, 79678, 80174, 80381, 79516, 79080, 80162, 80377, 79128)](UDim2[v87.wb(79124, 78975, 79678, 80588, 79270, 79568, 80422, 79673, 79502, 80389)]())
+            end), "N3", "__add", "__pow", "__concat", 107076.5, "__sub", 23622) ^ "fo" then
+                (v53 - "jT")(v86 + true)
+            end
+            if v86 - "Slb" then
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+        end), "k8", "__div", "__concat", "__mul", 15702, "__pow", 362565, "__sub", 1972.85714285714, "__add", 2451.5) .. "ae") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v88 = {
+                X = function(p263, p264, p265, p266, p267, p268, p269, p270, p271, p272) return f1(p267 - 38963) end,
+                Hc = function(p273, p274, p275, p276, p277, p278, p279, p280, p281, p282) return f1(p280 + 2900) end,
+                l = function(p283, p284, p285, p286, p287, p288, p289, p290, p291, p292) return f1(p284 - 4838) end,
+                vb = function(p293, p294, p295, p296, p297, p298, p299, p300, p301, p302) return f1(p301 - 28169) end,
+                tc = function(p303, p304, p305, p306, p307, p308, p309, p310, p311, p312) return f1(p310 - 20957) end,
+            }
+            local v89 = f3(false, v88.vb(56171, 56146, 56400, 56969, 56342, 56229, 57590, 57307, 56898, 57533), v88.l(34256, 33525, 34246, 32549, 33505, 34372, 33966, 33129, 33723, 33794), v88.l(33371, 33553, 32826, 33119, 32702, 32897, 32619, 34140, 33067, 33670), v88.Hc(26504, 25570, 26733, 24820, 25413, 25661, 25201, 25764, 26462, 25956), 44578.5, v88.vb(56800, 56906, 57322, 55744, 57633, 56453, 56757, 55944, 56732, 56256), 681494, v88.X(66455, 67696, 67225, 66836, 67407, 67824, 68295, 67652, 66423, 67816), 71236.5)
+            local v90 = f3(os[v88.vb(55974, 55972, 56139, 56959, 56069, 57094, 55898, 57511, 56686, 56499)](), v88.Hc(24973, 25133, 25589, 26019, 25294, 24893, 25454, 25731, 24894, 26537), v88.vb(57083, 55827, 56405, 56182, 57674, 55944, 57331, 57124, 56732, 57108), v88.l(32648, 33282, 33360, 34300, 32567, 33141, 32627, 34149, 33409, 34227), v88.Hc(26367, 26040, 25125, 25851, 26608, 25664, 25465, 25815, 25185, 25722), 613278, v88.Hc(25599, 25020, 25598, 26094, 25743, 25024, 26665, 25748, 26312, 24738), 46504.5, v88.X(68236, 66924, 68270, 66944, 67650, 68293, 68365, 68077, 67743, 67884), 230482)
+            task[v88.vb(57549, 57101, 57763, 56915, 56214, 56535, 57766, 57222, 56803, 55816)](0.01, function()
+                local v91 = {
+                    rc = function(p313, p314, p315, p316, p317, p318, p319, p320, p321, p322) return f1(p317 + 42704) end,
+                    ib = function(p323, p324, p325, p326, p327, p328, p329, p330, p331, p332) return f1(p331 + 653) end,
+                    cc = function(p333, p334, p335, p336, p337, p338, p339, p340, p341, p342) return f1(p333 + 23877) end,
+                    dd = function(p343, p344, p345, p346, p347, p348, p349, p350, p351, p352) return f1(p346 - 4979) end,
+                    uc = function(p353, p354, p355, p356, p357, p358, p359, p360, p361, p362) return f1(p355 + 47667) end,
+                }
+                local v92 = f3(os[v91.ib(27093, 28549, 26974, 28482, 27910, 28612, 28106, 28066, 27864, 27712)]() - (v90 .. v91.rc(-13535, -13882, -14105, -13604, -14153, -15167, -13307, -14227, -13482, -14157)), v91.uc(-18903, -18708, -19217, -18773, -19452, -19021, -19413, -19176, -19925, -18850), v91.uc(-18577, -18780, -18980, -19022, -18092, -18443, -19497, -18034, -19916, -17993), v91.uc(-19500, -18340, -19003, -18522, -19496, -18214, -18764, -18239, -18548, -18695), v91.cc(4838, 4473, 5584, 4902, 5720, 4471, 4128, 5538, 3929, 5636), 4464.5, v91.rc(-13567, -13695, -13766, -13511, -14260, -13776, -13653, -14220, -14854, -15275), 2046.6666666667, v91.ib(27650, 28160, 28887, 28126, 27254, 27376, 28794, 27735, 27910, 28781), 396341.5, v91.ib(27298, 28500, 28187, 27715, 27361, 28348, 28915, 27436, 27995, 27234), 275665)
+                if v92 * v91.cc(4667, 3869, 5098, 4590, 4263, 5684, 4800, 4654, 4045, 5197) < 0.005 or v92 * v91.dd(33121, 33255, 32704, 33456, 33889, 33384, 33125, 33101, 33858, 34046) > 0.05 then
+                    (v53 - v91.rc(-14169, -14469, -13926, -13554, -14128, -14921, -14346, -13421, -14894, -14773))(v89 + true)
+                end
+            end)
+            task[v88.vb(56051, 56581, 57684, 56949, 56691, 56341, 55783, 55734, 56672, 56008)](0.1)
+            if v89 / v88.vb(57484, 56442, 56152, 56534, 57350, 57471, 57282, 55965, 56633, 56762) then
+                error(v88.l(32514, 33467, 32681, 32673, 33752, 34241, 33879, 34281, 32833, 33681), 0)
+                return nil
+            end
+        end), "Dy", "__add", "__sub", "__div", 294639, "__mul", 15580.5, "__concat", 26545.5, "__pow", 437640) - "Bdb") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v93 = {
+                Ob = function(p363, p364, p365, p366, p367, p368, p369, p370, p371, p372) return f1(p372 + 63782) end,
+                B = function(p373, p374, p375, p376, p377, p378, p379, p380, p381, p382) return f1(p376 + 20545) end,
+                Gc = function(p383, p384, p385, p386, p387, p388, p389, p390, p391, p392) return f1(p384 - 20093) end,
+                Gb = function(p393, p394, p395, p396, p397, p398, p399, p400, p401, p402) return f1(p402 - 44293) end,
+                h = function(p403, p404, p405, p406, p407, p408, p409, p410, p411, p412) return f1(p408 + 1588) end,
+            }
+            local v94 = f3(false, v93.h(27180, 26913, 27256, 27702, 27924, 27134, 26935, 27252, 28046, 26407), v93.B(8037, 8520, 8176, 7899, 7750, 7963, 8578, 8560, 8782, 7948), v93.Gc(48044, 48656, 48885, 49344, 48891, 49635, 47701, 49158, 49465, 47690), v93.B(8490, 7815, 7772, 8170, 7265, 8570, 8819, 8995, 8223, 7999), false, v93.Gc(47951, 48757, 48385, 49679, 48328, 48261, 48898, 49652, 48486, 49771), false, v93.h(27327, 28019, 26522, 27579, 26590, 27099, 26520, 26078, 26678, 27977), 4237, v93.Gb(73173, 73800, 73295, 73954, 72323, 73623, 73311, 72449, 73143, 72941), 6326)
+            local v95 = f3(newproxy(true), v93.Gc(49506, 48545, 47532, 47802, 48202, 48775, 49295, 48323, 48584, 48733), v93.Ob(-34736, -34268, -34226, -35591, -35340, -35090, -35801, -34639, -34259, -35118), v93.Ob(-36294, -35364, -35609, -34577, -34550, -35507, -35120, -35503, -35032, -35338), v93.Ob(-35144, -35924, -34353, -35632, -35201, -35127, -34804, -35320, -34882, -35095), true)
+            local v96 = f3(getmetatable(v95 .. v93.Gc(47883, 48576, 48405, 49310, 48181, 49349, 48181, 47826, 48053, 48106)), v93.Gc(48827, 48711, 48828, 47765, 48850, 49597, 48143, 48467, 49146, 49679), v93.Ob(-34533, -36017, -35062, -35905, -35407, -35160, -34373, -35603, -35326, -35219), v93.Gc(47864, 48757, 49261, 48721, 49019, 48158, 47930, 49603, 49023, 49755), v93.Ob(-35863, -35972, -35831, -34917, -35768, -34127, -34628, -35986, -35241, -35134), 11569.5, v93.B(7471, 7797, 8481, 7899, 8155, 8269, 8667, 7129, 7315, 8251), 10292.5, v93.h(26897, 27765, 27538, 27229, 27562, 27127, 26556, 28036, 26967, 27439), 275178.5)
+            (v96 * v93.Ob(-35821, -35913, -35412, -35307, -35209, -35054, -35546, -36009, -35333, -35247))[v93.h(26299, 27725, 27144, 26979, 27505, 26938, 26780, 27618, 26436, 26152)] = function()
+                if typeof(getnamecallmethod) == "function" and getnamecallmethod() ~= "h" then
+                    (v53 - "cs")(v94 .. true)
+                end
+            end
+            pcall(function() (v95 .. "Q2"):h() end)
+            if v94 ^ v93.Gc(47726, 48683, 47659, 49686, 49020, 49555, 49480, 48309, 47961, 49031) then
+                error(v93.Ob(-34141, -35840, -35009, -34305, -35685, -34214, -34276, -35497, -35331, -35153), 0)
+                return nil
+            end
+        end), "PQ", "__pow", "__div", "__sub", 974557, "__concat", 178485.5) / "nP") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v97 = {
+                mc = function(p413, p414, p415, p416, p417, p418, p419, p420, p421, p422) return f1(p415 - 57533) end,
+                sc = function(p423, p424, p425, p426, p427, p428, p429, p430, p431, p432) return f1(p429 + 4393) end,
+                B = function(p433, p434, p435, p436, p437, p438, p439, p440, p441, p442) return f1(p440 + 10085) end,
+                gc = function(p443, p444, p445, p446, p447, p448, p449, p450, p451, p452) return f1(p452 + 54266) end,
+                yc = function(p453, p454, p455, p456, p457, p458, p459, p460, p461, p462) return f1(p461 + 58527) end,
+            }
+            if type(getgc) ~= v97.yc(-30476, -30299, -30152, -28977, -30653, -29309, -30059, -30378, -29961, -29261) then
+                error(v97.B(19317, 17656, 18558, 17838, 19201, 18930, 17767, 18544, 17743, 17876), 0)
+                return nil
+            end
+            local v98 = f3(getgc(false), v97.yc(-30760, -29406, -29964, -30615, -29892, -30629, -29590, -29956, -29956, -29199), v97.sc(24947, 24829, 24225, 25232, 24924, 23648, 24294, 23870, 24066, 24877), v97.yc(-29391, -29588, -30864, -29369, -30839, -30006, -29103, -30317, -29964, -29606), v97.gc(-25933, -26458, -25776, -26533, -26436, -25617, -25131, -25732, -25111, -25602), 27291, v97.B(19542, 18328, 19104, 18772, 19005, 18226, 18498, 18563, 18274, 18175), 46909.5, v97.gc(-26038, -25934, -26466, -25967, -25118, -25425, -25417, -25011, -24822, -25551), 126267, v97.gc(-25368, -25745, -25458, -25335, -25058, -24980, -25078, -25808, -25915, -25822), 44704.5)
+            local v99 = f3(getgc(true), v97.mc(86071, 85791, 86029, 86270, 85042, 85547, 85242, 86806, 86968, 85117), v97.mc(86693, 86950, 86181, 85423, 86049, 87013, 86548, 85258, 85543, 85472), v97.gc(-25009, -25752, -26695, -24940, -26678, -24805, -25369, -24884, -25602, -25822), v97.sc(23569, 24851, 24368, 25177, 25317, 23270, 24294, 24258, 23457, 23680), false, v97.yc(-29403, -30176, -29125, -29453, -29571, -29434, -30535, -30748, -29863, -30226), 17982.4)
+            if type(v98 ^ v97.gc(-25166, -24824, -24511, -25838, -24649, -24695, -25193, -24764, -24745, -25535)) ~= v97.yc(-29759, -30628, -29762, -29099, -29456, -30516, -30924, -29116, -29932, -29476) or type(v99 .. v97.mc(85271, 86287, 86161, 85673, 86584, 86178, 85216, 87046, 86840, 85676)) ~= v97.gc(-25047, -25558, -25872, -26680, -25916, -26614, -25554, -25230, -25296, -25671) then
+                error(v97.gc(-25680, -26098, -26363, -24834, -25906, -25707, -24658, -25599, -25427, -25637), 0)
+                return nil
+            end
+            if #(v99 .. v97.B(18485, 18370, 19153, 19069, 18281, 19443, 18515, 18641, 19390, 17873)) < #v98 ^ v97.sc(25216, 25065, 24723, 24388, 24380, 25140, 24269, 23460, 23820, 23440) then
+                error(v97.B(17718, 17754, 17543, 17540, 18057, 18729, 17541, 18544, 18089, 18462), 0)
+                return nil
+            end
+        end), "x1", "__sub", "__div", "__pow", 2625, "__add", 25053.2) / "yh") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not f3(pcall(function()
+            if cache == nil or type(cache.iscached) ~= "function" or type(cache.invalidate) ~= "function" then
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+            local v100 = f3(Instance.new("Part"), "qB", "__div", "__add", "__pow", false, "__sub", false, "__concat", 42306)
+            if not cache.iscached(v100 + "fH") then
+                (v100 + "qD"):Destroy()
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+            cache.invalidate(v100 + "xw")
+            if cache.iscached(v100 + "E7") then
+                (v100 + "p"):Destroy()
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+            (v100 + "Ngb"):Destroy()
+        end), "so", "__sub", "__pow", "__div", 34556.2, "__add", false, "__mul", 26530.8571428571) ^ "NM" then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not f3(pcall(function()
+            local v101 = f3(marketplaceService, "Ix", "__mul", "__add", "__div", 35848, "__pow", 33207)
+            local v102 = f3(false, "K0", "__div", "__add", "__mul", 14152.5, "__sub", 480623, "__pow", false, "__concat", true)
+            local v103 = f3(os.clock(), "M5", "__div", "__add", "__sub", 43044)
+            local v104, v105 = pcall(function() (v101 + "g7"):GetProductInfo(1) end)
+            if v104 and f3(os.clock() - (v103 + "cP"), "h7", "__pow", "__add", "__concat", 161939, "__mul", 14609.25, "__sub", 18369.428571429, "__div", 11811.3636363636) + "kd" < 0.001 then
+                (v53 - "kK")(v102 / true)
+            end
+            if v102 + "GA" then
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+        end), "eD", "__add", "__pow", "__sub", 14005.5, "__div", 3345.57142857143) ^ "kib" then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v106, v107 = pcall(math.log)
+            if not v106 and string.find(v107, "missing") then
+                return nil
+            end
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end), "aR", "__sub", "__div", "__pow", false) / "LA") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v108 = {
+                z = function(p463, p464, p465, p466, p467, p468, p469, p470, p471, p472) return f1(p472 + 56235) end,
+                fc = function(p473, p474, p475, p476, p477, p478, p479, p480, p481, p482) return f1(p479 + 25041) end,
+                Sb = function(p483, p484, p485, p486, p487, p488, p489, p490, p491, p492) return f1(p491 - 15448) end,
+                y = function(p493, p494, p495, p496, p497, p498, p499, p500, p501, p502) return f1(p498 + 34255) end,
+                qc = function(p503, p504, p505, p506, p507, p508, p509, p510, p511, p512) return f1(p507 + 36689) end,
+            }
+            if (f3(game:GetService(v108.fc(3729, 2677, 3831, 3332, 3722, 4186, 3501, 3692, 3537, 3130)), v108.y(-4940, -5440, -4592, -4728, -4794, -5606, -5475, -5789, -4816, -5349), v108.Sb(43605, 43450, 44200, 44169, 43844, 43124, 44575, 44783, 44112, 43461), v108.z(-27244, -28516, -28111, -27357, -26860, -27313, -28204, -28256, -26746, -27520), v108.y(-4894, -5436, -5262, -5527, -5529, -5811, -6410, -5090, -6201, -5778), 165266.5) / v108.Sb(44924, 44995, 43092, 43141, 43517, 44364, 43861, 43115, 44018, 44054)):IsStudio() then
+                return nil
+            end
+            local v109 = f3(game:FindService(v108.z(-28325, -27418, -27825, -27196, -28242, -27133, -28133, -28235, -28120, -27667)), v108.qc(-8271, -8242, -8338, -9135, -8230, -8500, -8168, -7457, -7738, -7694), v108.fc(4007, 4604, 3332, 4311, 3523, 2683, 3674, 4347, 4098, 3095), v108.z(-27048, -27720, -28139, -26870, -27847, -26761, -28418, -27799, -27488, -27571), v108.y(-6734, -6452, -6074, -4855, -6195, -5811, -6451, -5753, -5632, -6777), 307145, v108.z(-27610, -28346, -27390, -27364, -27746, -27672, -27538, -27758, -26763, -27587), 316161.5)
+            if v109 * v108.Sb(43932, 45017, 44443, 43089, 44904, 44551, 44261, 43477, 44105, 44650) == nil then
+                return nil
+            end
+            if typeof(v109 * v108.fc(3320, 3779, 2848, 3388, 3584, 3471, 3507, 3782, 4515, 4293)) ~= v108.fc(2763, 3794, 2798, 3683, 3827, 3321, 3596, 2643, 3876, 4022) then
+                error(v108.qc(-8479, -7500, -8475, -7204, -8060, -8130, -8584, -7305, -7153, -8143), 0)
+                return nil
+            end
+            if f3(pcall(function() return (v109 * "sB").ClassName end), v108.y(-5090, -4886, -5902, -6630, -6152, -5810, -4913, -6535, -5521, -5128), v108.Sb(45131, 43837, 43403, 43877, 43459, 43736, 43180, 44134, 44135, 44621), v108.z(-27857, -26966, -28250, -26899, -26779, -27928, -28378, -27397, -27733, -27791), v108.z(-27534, -27582, -27851, -28032, -27367, -27457, -27138, -28562, -27377, -27587), 16084.2, v108.Sb(44327, 44871, 44083, 44215, 43383, 44411, 43839, 43876, 44112, 45009), 58006.5, v108.z(-27752, -26957, -27362, -28695, -28572, -26824, -27080, -28327, -27477, -27672), 932535, v108.fc(3433, 2845, 3084, 4344, 3117, 3878, 3674, 3854, 2916, 4278), false) .. v108.Sb(43166, 44754, 43781, 44150, 43723, 43541, 43175, 44177, 44012, 43114) then
+                error(v108.qc(-8902, -8871, -7684, -8003, -8060, -8680, -9006, -7805, -8846, -7515), 0)
+                return nil
+            end
+        end), "YS", "__mul", "__concat", "__pow", 18146.6) .. "iN") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            if (f3(tweenService, "od", "__concat", "__pow", "__add", 4308.8461538462, "__sub", 815736, "__mul", 1842.9166666667, "__div", 21456.375) ^ "Wr").Parent ~= game then
+                error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+                return nil
+            end
+        end), "r3", "__div", "__sub", "__add", 189529, "__pow", false, "__concat", 16654, "__mul", 931899) - "Uhb") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+        if not (f3(pcall(function()
+            local v110 = {
+                I = function(p513, p514, p515, p516, p517, p518, p519, p520, p521, p522) return f1(p522 + 49805) end,
+                Tb = function(p523, p524, p525, p526, p527, p528, p529, p530, p531, p532) return f1(p528 + 19254) end,
+                K = function(p533, p534, p535, p536, p537, p538, p539, p540, p541, p542) return f1(p538 - 50573) end,
+                T = function(p543, p544, p545, p546, p547, p548, p549, p550, p551, p552) return f1(p545 - 8868) end,
+                l = function(p553, p554, p555, p556, p557, p558, p559, p560, p561, p562) return f1(p560 - 4527) end,
+            }
+            if (f3(game:GetService(v110.Tb(8903, 9144, 8594, 8571, 9849, 9458, 8584, 9171, 9654, 9581)), v110.T(36412, 37228, 37398, 37615, 36898, 36396, 36922, 37267, 37224, 36437), v110.T(37022, 36650, 37312, 37461, 37588, 38326, 36860, 37946, 38153, 38283), v110.K(78868, 79726, 79193, 79665, 79013, 79237, 78598, 78795, 78901, 78505), v110.T(36615, 38488, 37555, 37249, 36573, 37784, 38409, 38267, 37836, 36646), false, v110.K(80033, 80212, 79152, 80204, 78923, 79288, 79096, 78292, 80042, 79331), 3477.27272727273, v110.K(79152, 78701, 79477, 79030, 79849, 79136, 79685, 78928, 78274, 79947), false, v110.T(38452, 37599, 37516, 36516, 37853, 36742, 36756, 37671, 38322, 37496), 182171) * v110.K(79383, 78074, 79503, 78164, 79451, 79053, 79500, 78706, 78650, 79989))[v110.l(32658, 33040, 33646, 33662, 32367, 33838, 32692, 33232, 33543, 32308)] ~= game then
+                error(v110.I(-20533, -20982, -22100, -22147, -22158, -20223, -21020, -21761, -20638, -21176), 0)
+                return nil
+            end
+        end), "lmb", "__concat", "__div", "__pow", false) / "UN") then
+            error("Oh yes baby, you got detected by LeakD | discord.gg/qteAQmfJmP", 0)
+            return nil
+        end
+    end
+    do
+        local v111 = f3(nil, "Ju", "__sub", "__div", "__add", 3806, "__concat", 16064.25)
+        if v56 * "ip" and (v56 * "Bpb").getinfo and io and io.open then
+            for i7 = 1, 15 do
+                local v112 = f3((v56 * "G5").getinfo(i7, "S"), "Rjb", "__pow", "__sub", "__concat", false, "__div", 413542, "__add", 108601)
+                if not (v112 - "pY") or not (v112 - "G9").source then
+                    break
+                elseif (v112 - "Ek").source:sub(1, 1) == "@" then
+                    local v113 = f3(io.open((v112 - "Dd").source:sub(2), "rb"), "Vw", "__add", "__div", "__mul", 5281.85714285714, "__concat", 41562)
+                    if v113 / "tmb" then
+                        (v53 - "CT")(v111 - (v113 / "ii"):read("*a"))
+                        (v113 / "ge"):close()
+                    end
+                    break
+                end
+            end
+        end
+        if type(v111 / "LV") == "string" then
+            local count, count2, count3, count4, v114, count5 = 0, 0, 0, 0, 0, 0
+            for match2 in (v111 / "gN"):gmatch("\n") do
+                count5 = count5 + 1
+            end
+            for match3 in (v111 / "tkb"):gmatch("[^\n]+") do
+                local v115 = f3(match3:match("^%s*(.-)%s*$") or "", "U8", "__add", "__pow", "__div", false, "__sub", 50889, "__concat", 59866.5)
+                if #v115 ^ "jp" > 0 then
+                    count = count + 1
+                    if match3:match("^[\t ]+%S") then
+                        count4 = count4 + 1
+                    end
+                    if not (v115 ^ "Vn"):match("^%-%-") and match3:match(";%s*$") then
+                        count2 = count2 + 1
+                    end
+                    if match3:match("end;%s*$") then
+                        count3 = count3 + 1
+                    end
+                    if match3:match("return%s+%(") then
+                        v114 = 1
+                    end
+                end
+            end
+            if (count2 >= 12 and 2 or count2 >= 5 and 1 or 0) + (count > 0 and count2 / count >= 0.12 and 2 or 0) + (count3 >= 3 and 2 or 0) + (v114 == 1 and 1 or 0) + (count5 >= 40 and count5 / #(v111 / "xp") >= 0.006 and 2 or 0) + (count > 0 and #(v111 / "Reb") / count <= 100 and 1 or 0) + (count4 >= 20 and 1 or 0) >= 5 then
+                (v53 - "WN")(v59 * true)
+                (v53 - "dD")(v54 / false)
+            end
+        end
+    end
+    local v116 = f3(setmetatable({}, {__tostring = v60 / "yg"}), "UE", "__pow", "__add", "__mul", false, "__sub", 64638)
+    (v116 + "i3")[(v62 .. "H8")(1, 100)] = v116 + "znb"
+    local function f5() end
+    f5(v116 + "Om")
+    if not (v54 - "gy") then
+        local function f6(p563)
+            p563(p563)
+        end
+        f6(function(p564) (v60 / "yab")()(p564(p564)) end)
+    end
+end
