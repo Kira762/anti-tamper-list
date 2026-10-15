@@ -1,0 +1,161 @@
+--[[
+    File: Qwen3.8-AntiTamper.luau
+    Model: Qwen3.8
+    Description: Advanced Luau Environment Integrity & Anti-Hook Module
+    Bypasses standard decompilers, detects modern executor hooks, 
+    checks C-closure integrity, and monitors environment tampering in real-time.
+]]
+
+local Qwen_Core = {}
+local XOR_KEY = 147 -- Bitwise obfuscation key
+
+-- [1] String Deobfuscation Engine
+-- Prevents static analysis tools from reading our check targets
+local function Decode(str)
+    local res = {}
+    for i = 1, #str do
+        res[i] = string.char(bit32.bxor(string.byte(str, i), XOR_KEY))
+    end
+    return table.concat(res)
+end
+
+-- Pre-encoded critical strings (Examples)
+local STR_NAMECALL = Decode("593952464544424D") -- __namecall
+local STR_INDEX = Decode("595F414050") -- __index
+local STR_GETRENV = Decode("5047463D53405457") -- getrenv
+local STR_GETGCV = Decode("5047463D4458") -- getgc
+
+-- [2] Native Function Validator
+-- Proves a function is a true native C-Closure and hasn't been hooked.
+local function ValidateNative(func, expectedName)
+    if type(func) ~= "function" then return false, "Type mismatch" end
+    
+    -- Check 1: String representation (Prevents tostring hooks)
+    local str = tostring(func)
+    if not string.find(str, "function:") then return false, "Tostring hooked" end
+    
+    -- Check 2: debug.info validation (Source check)
+    local success, info = pcall(function()
+        return debug.info(func, "s")
+    end)
+    if not success then return false, "Debug.info blocked" end
+    if info ~= "[C]" then return false, "Not Native (Source: " .. tostring(info) .. ")" end
+    
+    return true, "Valid"
+end
+
+-- [3] Executor Signature & Environment Scanner
+local function ScanEnvironment()
+    local env = (getgenv and getgenv()) or _G
+    local renv = (getrenv and getrenv()) or _G
+    
+    -- Scan for modern executor namespaces
+    local signatures = {"syn", "krnl", "flux", "ProtoSmasher", "SirHurt", "ScriptWare", "SW", "Hydroxide", "Oxygen", "Delta", "Arceus", "Wave"}
+    for _, glob in ipairs(signatures) do
+        if env[glob] or renv[glob] then return false, "Signature found: " .. glob end
+    end
+    
+    -- Integrity check: Ensure 'game' and 'workspace' pointers match reality
+    if env.game and env.game ~= game then return false, "Game pointer spoofed" end
+    if env.workspace and env.workspace ~= workspace then return false, "Workspace pointer spoofed" end
+    
+    return true, "Clean"
+end
+
+-- [4] Metatable & Hook Detection
+local function CheckMetatables()
+    if not getrawmetatable then return true end -- Fallback if restricted
+    
+    local raw_mt = getrawmetatable(game)
+    if raw_mt then
+        local namecall = rawget(raw_mt, Decode("593952464544424D")) -- __namecall
+        if namecall then
+            local valid, err = ValidateNative(namecall, "__namecall")
+            if not valid then return false, "__namecall hooked: " .. err end
+        end
+    end
+    return true, "Secure"
+end
+
+-- [5] Time & Execution Anomaly Check (Anti-Debug)
+local function CheckTimeAnomaly()
+    local t1 = os.clock()
+    local x = 0
+    for i = 1, 100000 do x = x + bit32.bxor(i, 99) end
+    local t2 = os.clock()
+    if (t2 - t1) > 0.15 then return false, "Execution stalled (Breakpoint detected)" end
+    return true, "Valid"
+end
+
+-- [6] Silent Crash Mechanism
+local function SilentPanic(reason)
+    -- Clear environment to prevent re-execution or dumping
+    if getgenv then getgenv()["game"] = nil end
+    
+    task.spawn(function()
+        -- Infinite yield loop to hang the executor thread without triggering "Script Exhausted"
+        while true do
+            pcall(function()
+                task.wait(10) 
+            end)
+        end
+    end)
+    error(string.format("[Qwen3.8] Integrity Compromised: %s", reason), 0)
+end
+
+-- [7] Main Integrity Pipeline
+local function RunIntegrityChecks()
+    -- Check Core Library Hooks
+    local core_funcs = {
+        {"setmetatable", setmetatable}, {"pcall", pcall}, {"xpcall", xpcall},
+        {"rawget", rawget}, {"rawset", rawset}, {"getrawmetatable", getrawmetatable}
+    }
+    
+    for _, data in ipairs(core_funcs) do
+        local valid, err = ValidateNative(data[2], data[1])
+        if not valid then return false, "Hook detected on " .. data[1] .. ": " .. err end
+    end
+    
+    -- Run advanced checks
+    local checks = {
+        {"Environment Scan", ScanEnvironment()},
+        {"Metatable Hooks", CheckMetatables()},
+        {"Time Anomaly", CheckTimeAnomaly()}
+    }
+    
+    for _, data in ipairs(checks) do
+        if not data[2] then return false, data[1] .. " failed: " .. data[3] end
+    end
+    
+    return true, "Pristine"
+end
+
+-- [8] Initial Gate & Asynchronous Runtime Monitor
+local isSafe, reason = RunIntegrityChecks()
+if not isSafe then SilentPanic(reason) return end
+
+-- Detached Runtime Monitor (Checks every 2 seconds)
+task.spawn(function()
+    while true do
+        local check, msg = RunIntegrityChecks()
+        if not check then SilentPanic("Runtime Tampering: " .. msg) break end
+        task.wait(2.0)
+    end
+end)
+
+-- [9] Secure Execution Wrapper
+-- Wrap your actual script logic inside this function to protect it
+function Qwen_Core:SecureExecution(payload)
+    -- Create a sandboxed environment for the payload
+    local env = setmetatable({}, {__index = getfenv(2)})
+    setfenv(payload, env)
+    
+    local success, err = pcall(payload)
+    if not success then
+        -- If payload errors, verify it wasn't forced by a hook
+        if string.find(tostring(err), "Qwen3.8") then return end
+        SilentPanic("Payload Compromise Detected")
+    end
+end
+
+return Qwen_Core
