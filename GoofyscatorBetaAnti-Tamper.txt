@@ -1,0 +1,108 @@
+local function integrity_hash_block(h, inputStr, hexValue, checkTable)
+    local function computeHash(str, seed)
+        if type(str) ~= "string" then
+            return 0
+        end
+        
+        local strLen = #str
+        local hashVal = (seed or 0x679C) % 0x7FFFFFFF
+        
+        if strLen == 0 then
+            return hashVal
+        end
+        
+        local iterations = strLen < 12 and strLen or 12
+        
+        for i = 1, iterations do
+            local charPos = ((hashVal + (i * 891)) % strLen) + 1
+            local charByte = string.byte(str, charPos) or 0
+            hashVal = (hashVal * 923 + charByte * (i + 75) + charPos * 867 + 0xE3C) % 0x7FFFFFFF
+        end
+        
+        return hashVal
+    end
+    
+    local keyValue = h.N
+    
+    if type(inputStr) ~= "string" or type(keyValue) ~= "string" then
+        error("runtime error", 0)
+    end
+    
+    local combinedData = tostring(h) .. tostring(hexValue)
+    local baseHash = computeHash(combinedData, 0x679C)
+    local inputHash = computeHash(inputStr, baseHash + (#inputStr * 891))
+    inputHash = (inputHash + computeHash(keyValue, baseHash + (#keyValue * 0xE3C))) % 0x7FFFFFFF
+    
+    local finalHash = ((baseHash * 493) + (inputHash * 601) + (#combinedData * 792) + 0x679C) % 0x7FFFFFFF
+    
+    if finalHash == 0 then
+        finalHash = 792
+    end
+    
+    if checkTable[3] ~= finalHash or checkTable[4] ~= inputHash or checkTable[5] ~= baseHash then
+        error("runtime error", 0)
+    end
+    
+    checkTable[1] = 2
+    h.JbD = finalHash
+    
+    local charMap = "6F,9~r?L;[K_G`%<f2H5pnt!CkwM:A)WdO\"ogP+v$Q|qR8yzi7l=YV@3a]ZcI(&}*U4Jx1jETuN^/#>mhbe0DsBSX.{"
+    local reverseMap = {}
+    
+    for i = 1, #charMap do
+        reverseMap[string.byte(charMap, i)] = i - 1
+    end
+    
+    h.Vy = reverseMap
+end
+
+local function router(isActive, param1, param2, param3, param4)
+    if isActive == true then
+        globalCounter = (param1 or 0) + 0xE1BA
+        flagA = true
+        flagB = true
+        return
+    elseif isActive == false then
+        storedVal1 = param1
+        storedVal2 = param2
+        storedVal3 = param3
+        globalCounter = (param4 or 0) + 0xE1BA
+        flagA = true
+        flagB = false
+        return
+    elseif isActive == nil then
+        return storedVal1, storedVal2, storedVal3
+    end
+    
+    if not flagA or versionTable[param2] == nil or (flagB and not activeTable[param2]) then
+        return param3
+    end
+    
+    local threshold = (param1 * 729 + param2 + globalCounter + 0x9FDB) % 100
+    
+    if not activeTable[param2] and (60 <= 0 or threshold >= 60) then
+        return param3
+    end
+    
+    local mode = activeTable[param2] and 1 or (2 + ((globalCounter + param1 + param2) % baseValue))
+    isActive[0x4E2C] = {param3, param2, mode, param1}
+    return returnValue
+end
+
+n.QmR = router
+
+local function finalizeCheck(param1, param2, param3, param4)
+    if globalFlag or type(checkTable) ~= "table" or checkTable[1] ~= 2 then
+        error("", 0)
+    end
+    
+    globalFlag = true
+    checkTable[1] = 3
+    
+    local callback = h.QmR
+    if callback then
+        callback(false, param1, param2, param3, ((param4 or 0) + (checkTable[3] or 0) + (checkTable[4] or 0)) % 0x7FFFFFFF)
+    end
+    
+    h.XU = nil
+end
