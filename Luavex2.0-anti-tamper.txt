@@ -1,0 +1,576 @@
+local ALPH92 = "!#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
+local function fail_nil()
+  local v = nil
+  return v()
+end
+
+local function fail_msg()
+  local g = (getfenv and getfenv(0) or _G)["error"]
+  if type(g) ~= "function" then
+    return fail_nil()
+  end
+  g("DTC by Luavex", 0)
+  return fail_nil()
+end
+
+local function outer_decode(strings, order, OFF, SUB)
+  local s = {}
+  local p = 0
+  local function step_pair(x)
+    for i = 1, #x, 2 do
+      local u = string.find(ALPH92, string.sub(x, i, i), 1, true)
+      local v = string.find(ALPH92, string.sub(x, i + 1, i + 1), 1, true)
+      if not u or not v then
+        return fail_nil()
+      end
+      local d = (u - 1) * 92 + v - 1
+      p = p + 1
+      s[(p + OFF - 1) % 18 + 1] = string.char((d - SUB) % 256)
+    end
+    return true
+  end
+  local function step_triplet(x, f)
+    for i = 1, #x, 3 do
+      local c1, c2, c3 = string.byte(x, i, i + 2)
+      if not c3 then
+        return fail_nil()
+      end
+      local d = (c1 - 224) * 4096 + (c2 - 128) * 64 + c3 - 128
+      local b
+      if f == 0 then
+        b = 19968
+      elseif f == 1 then
+        b = 10240
+      else
+        if d >= 19968 then
+          b = 19968
+        elseif d >= 9728 then
+          b = 9728
+        elseif d >= 9472 then
+          b = 9472
+        else
+          return fail_nil()
+        end
+      end
+      p = p + 1
+      s[(p + OFF - 1) % 18 + 1] = string.char((d - b - SUB) % 256)
+    end
+    return true
+  end
+  for _, entry in ipairs(order) do
+    local x = strings[entry.name]
+    local ok
+    if entry.f == 3 then
+      ok = step_pair(x)
+    else
+      ok = step_triplet(x, entry.f)
+    end
+    if not ok then
+      return fail_nil()
+    end
+  end
+  local e = table.concat(s, "", 1, 5)
+  local m = table.concat(s, "", 6)
+  return e, m
+end
+
+local function capture_env()
+  local U = ("").char
+  local Z = loadstring
+  local function B(...) return U(...) end
+  local V = Z(B(114, 101, 116, 117, 114, 110, 32, 40, 116, 121, 112, 101, 40, 103, 101, 116, 102, 101, 110, 118, 41, 61, 61, 39, 102, 117, 110, 99, 116, 105, 111, 110, 39, 32, 97, 110, 100, 32, 103, 101, 116, 102, 101, 110, 118, 40, 48, 41, 41, 32, 111, 114, 32, 95, 71))()
+  return V
+end
+
+local function behavioral_canary(E)
+  local K = E.bxor
+  local L = E.band
+  local F = E.floor
+  return K(0, 0) == 0
+    and L(255, 15) == 15
+    and F(1.9) == 1
+end
+
+local function table_sum_32640(t)
+  local acc = 0
+  for i = 1, 256 do
+    acc = acc + t[i]
+  end
+  return acc % 65536 == 32640
+end
+
+local function xor_fold(bxor, arr)
+  local acc = 0
+  for i = 1, #arr do
+    acc = bxor(acc, arr[i])
+  end
+  return acc
+end
+
+local function adler32(data)
+  local a, b = 1, 0
+  for i = 1, #data do
+    a = (a + string.byte(data, i)) % 65521
+    b = (b + a) % 65521
+  end
+  return b * 65536 + a
+end
+
+local LANE_BASE = { 64, 192, 128, 0 }
+
+local function desc72(x, bxor_fn, byte_fn, fail)
+  if type(x) ~= "string" or #x ~= 72 then
+    return fail()
+  end
+  local c = 0
+  local v = 0
+  for i = 1, #x, 3 do
+    local a, b, d = byte_fn(x, i, i + 2)
+    local k, z
+    if a == 228 and b == 184 then
+      k, z = 1, 128
+    elseif a == 226 then
+      if b == 161 then
+        k, z = 2, 128
+      elseif b == 148 then
+        k, z = 3, 128
+      elseif b == 150 and d >= 160 then
+        k, z = 4, 160
+      elseif b == 151 and d < 160 then
+        k, z = 4, 96
+      end
+    end
+    if not k or d < 128 or d > 191 then
+      return fail()
+    end
+    local q = LANE_BASE[k] + d - z
+    c = bxor_fn(c, q)
+    if i < 13 then
+      v = v * 256 + q
+    end
+  end
+  if c ~= 0 then
+    return fail()
+  end
+  return v
+end
+
+local PAYLOAD_V3_FINAL = {
+  LEN = 14684,
+  ITERS = 2908,
+  SEED = 113,
+  LANES = { 1, 3, 2, 0 },
+  ADD = 105,
+  STEP = 59,
+  C0 = 116,
+  C1 = 72,
+  MOD = 58,
+}
+
+local PAYLOAD_STAGES_V2 = {
+  { NAME = "_4w", LEN = 4204, ITERS = 812, SEED = 103, LANES = { 3, 1, 0, 2 }, ADD = 2, STEP = 16, C0 = 115, C1 = 48, MOD = 15 },
+  { NAME = "_5u", LEN = 8689, ITERS = 1709, SEED = 94, LANES = { 2, 1, 0, 3 }, ADD = 193, STEP = 34, C0 = 139, C1 = 17, MOD = 33 },
+  { NAME = "_3w", LEN = 14739, ITERS = 2919, SEED = 253, LANES = { 1, 2, 0, 3 }, ADD = 196, STEP = 59, C0 = 158, C1 = 99, MOD = 58 },
+}
+local PAYLOAD_STAGES_V3 = {
+  { NAME = "_5c", LEN = 4294, ITERS = 830, SEED = 81, LANES = { 0, 1, 3, 2 }, ADD = 181, STEP = 16, C0 = 102, C1 = 96, MOD = 15 },
+  { NAME = "_0r", LEN = 9229, ITERS = 1817, SEED = 178, LANES = { 2, 0, 3, 1 }, ADD = 249, STEP = 37, C0 = 41, C1 = 53, MOD = 36 },
+  { NAME = "_1a", LEN = 14684, ITERS = 2908, SEED = 113, LANES = { 1, 3, 2, 0 }, ADD = 105, STEP = 59, C0 = 116, C1 = 72, MOD = 58 },
+}
+
+local LANE_BASES_V2 = {
+  { 192, 64, 0, 128 },
+  { 128, 64, 0, 192 },
+  { 64, 128, 0, 192 },
+}
+local LANE_BASES_V3 = {
+  { 0, 64, 192, 128 },
+  { 128, 0, 192, 64 },
+  { 64, 192, 128, 0 },
+}
+
+local WATCHDOG_V2 = {
+  { XOR = 0, ADLER = 1283521660, GATE = "2*_1s+_5f==376" },
+  { XOR = 54, ADLER = 3790616056, GATE = "2*_1c+_1j==48" },
+  { XOR = 87, ADLER = 2172878265, GATE = "2*_5r+_0m==409" },
+}
+local WATCHDOG_V3 = {
+  { XOR = 101, ADLER = 1259604212, GATE = "2*_2t+_5q==336" },
+  { XOR = 170, ADLER = 4242639576, GATE = "2*_3u+_1j==457" },
+  { XOR = 145, ADLER = 1486712412, GATE = "2*_3u+_3g==265" },
+}
+
+local HEADER_XZ = {
+  F = 1,
+  R = 2,
+  T = 3,
+}
+
+local TAIL_V2 = { BASE = 8844, XORC = 38823, IDX1 = 11, IDX2 = 25 }
+local TAIL_V3 = { BASE = 55964, XORC = 39338, IDX1 = 11, IDX2 = 24 }
+
+local VM_BIAS_V2 = { OFF = 4, ADD = 226, MUL = 196 }
+local VM_BIAS_V3 = { OFF = 20, ADD = 213, MUL = 234 }
+
+local OPCODES_V3 = { M = { 69, 9, 57, 74 }, N = { 1, 5 } }
+local OPCODES_V2 = { MODGATE = "(_O+4)%8", IDS = { 27, 22, 40, 28, 66, 34 } }
+
+local DEAD = {
+  WV = "init false, no true assignment in either file; call clone always fails",
+  CANARY = "local _a do end never read; no fail edge, tripwire only",
+  DECOYS = "refs 1 each, def only",
+  DEBUG = "0 hits",
+}
+local FOLD = {
+  V2_257 = 835,
+  V3_257 = 842,
+  V2_256 = 40,
+  V3_256 = 40,
+  V2_65521 = 38,
+  V3_65521 = 38,
+  V2_65536 = 3,
+  V3_65536 = 3,
+  V2_16777213 = 2,
+  V3_16777213 = 2,
+  V2_FF = 30,
+  V3_FF = 26,
+  V2_AA = 3,
+  V3_AA = 3,
+}
+local OUTER_V2 = {
+  { OFF = 8, SUB = 133 },
+  { OFF = 12, SUB = 78 },
+  { OFF = 11, SUB = 230 },
+  { OFF = 3, SUB = 70 },
+}
+local OUTER_V3 = {
+  { OFF = 1, SUB = 117 },
+  { OFF = 2, SUB = 8 },
+  { OFF = 4, SUB = 95 },
+  { OFF = 8, SUB = 7 },
+}
+local DECODER_KEYS_V3 = { 121, 149, 164, 25, 36, 155, 95 }
+local DECODER_PROG_V3 = { SEED = 57, STEP = 107 }
+local KEYDERIVE_S_V2 = { "60-213-241", "95-43", "1-5-21" }
+local KEYDERIVE_S_V3 = { "201-153-200", "2-7-32", "168-178" }
+local KEYDERIVE_R_V2 = { "218-120", "236-180-120", "90-225" }
+local KEYDERIVE_R_V3 = { "242-134-120", "2-4-2", "253-241" }
+local OUTER_ORDER_V2 = { "A0-B2-C3-I1", "uu3-nu1-Ru0-Tu2", "su1-Su3-au0-hu2", "Qu1-ou0-Fu2-Yu3" }
+local OUTER_ORDER_V3 = { "J3-A1-C0-U2", "B1-kz0-zz3-Vz2", "Xz0-jz1-Jz2-Oz3", "dz1-Az2-wz0-oz3" }
+local TFORM = { V2_AC = 103, V2_T3K = 15, V2_A = 78, V2_B = 112, V3_AC = 26, V3_T3K = 9, V3_A = 96, V3_B = 122 }
+local WATCH_HI = { H1 = 22, H2 = 61, K2 = 4294967295, I2 = 61, FINAL = 61 }
+local BASES = { 19968, 10240, 9728, 9472 }
+local ALPH92LEN = 92
+local FAIL_COUNT = {
+  V2_GLOBAL = 134,
+  V3_GLOBAL = 135,
+  STAGE_EACH = 12,
+}
+local DESC_FIELDS = { A1 = 228, B1 = 184, A2 = 226, B2A = 161, B2B = 148, B2C = 150, B2D = 151, LO = 128, HI = 191, Z1 = 128, Z4A = 160, Z4B = 96 }
+local VM_FETCH = { LANES = { 3, 0, 2, 1 }, DEBIAS = { 17, 19, 23 } }
+local HANDLER_IDS_V2 = { 2324, 2310, 2420, 2406 }
+local HANDLER_IDS_V3 = { 6271, 6203, 7123, 6791 }
+local FILE_BYTES = { V2 = 97243, V3 = 97277 }
+local ENV_NAMES = { "next", "rawget", "xpcall", "ipairs", "getmetatable", "pcall", "type", "tostring", "select", "setmetatable", "table", "pack", "unpack", "create", "concat", "bit32", "bxor", "band", "math", "floor" }
+local DISPATCH_V2_W1 = { 2289, 8533, 932, 9178, 9969, 4320, 376, 8258, 4246, 4127 }
+local DISPATCH_V2_W2 = { 6637, 9484, 2594, 4538, 48, 1791 }
+local DISPATCH_V2_W3 = { 607, 409, 7117, 7844, 4716, 3989, 6286 }
+local DISPATCH_V3_W1 = { 8299, 8359, 1091, 4514, 4282, 3487, 2898, 336, 8927, 2226 }
+local DISPATCH_V3_W2 = { 7544, 3549, 5114, 1404, 4563, 3299, 457, 944, 8490 }
+local DISPATCH_V3_W3 = { 7382, 2071, 265, 1967, 8326, 8308, 7649, 9642 }
+local VM_BRANCH_V3_M = { 69, 9, 57, 74 }
+local VM_BRANCH_V3_N = { 1, 5 }
+local VARINT = { MAXB = 8, LIMIT = 9007199254740991 }
+local FAMILY = { F1A = 228, F1B = 184, F2A = 226 }
+local HANDLER_BSTR_V2 = { "wNfFe1SuLByaOJovor", "499rIlGeVni0HfX7WJ", "e@aAa+Sk#kKki=*", "023bS#kspfpUB1UY" }
+local HANDLER_BSTR_V3 = { "nKJq@EV^F:*NLQO$", "wNcgLOT-QPsfHRGu", "ctPBfQHO%PjNuE+T", "fQLUiIraDewxDKyN" }
+local R_BSTR_V2 = { "ve+30ItQ", "IfIxRe2MgRR6wGhi~0" }
+local R_BSTR_V3 = { "p#V!x&sT", "lB$j=j&n-pNJ!OM-hX" }
+local OUTER_RAW = { 15, 15, 10, 9 }
+local U_COUNT = 21
+local LIFECYCLE = { 0, 1, 2, 3, 4 }
+local MT_GUARDS = { "len", "index", "newindex", "call" }
+
+local function payload_integrity(s, P, fail, pack_fn, gsub_fn, byte_fn)
+  s = gsub_fn(s, "[%s]", "")
+  s = gsub_fn(s, "z", string.char(33):rep(5))
+  if #s ~= P.LEN then
+    return fail()
+  end
+  local o = {}
+  local p = 1
+  local m = 0
+  local state = P.SEED
+  for i = 1, P.ITERS do
+    local d, e, f, g, h = byte_fn(s, p, p + 4)
+    if not h or d < 33 or d > 117 or e < 33 or e > 117 or f < 33 or f > 117 or g < 33 or g > 117 or h < 33 or h > 117 then
+      return fail()
+    end
+    state = (state * 33 + d - 33) % 256
+    state = (state * 33 + e - 33) % 256
+    state = (state * 33 + f - 33) % 256
+    state = (state * 33 + g - 33) % 256
+    state = (state * 33 + h - 33) % 256
+    local v = (d - 33) * 52200625 + (e - 33) * 614125 + (f - 33) * 7225 + (g - 33) * 85 + (h - 33)
+    o[#o + 1] = pack_fn(">I4", v)
+    p = p + 5
+    if m < 48 and i == (m + 1) * P.STEP + ((P.C0 + m * P.C1) % P.MOD) then
+      local a, b, c = byte_fn(s, p, p + 2)
+      if not c then
+        return fail()
+      end
+      local family, z
+      if a == 228 and b == 184 then
+        family, z = 1, 128
+      elseif a == 226 then
+        if b == 161 then
+          family, z = 2, 128
+        elseif b == 148 then
+          family, z = 3, 128
+        elseif b == 150 and c >= 160 then
+          family, z = 4, 160
+        elseif b == 151 and c < 160 then
+          family, z = 4, 96
+        end
+      end
+      if not family or not c or c < 128 or c > 191 then
+        return fail()
+      end
+      local lane = P.LANES[family]
+      local value = (state + i + P.ADD) % 64
+      if lane ~= (1 + i + state) % 4 or c - z ~= value then
+        return fail()
+      end
+      state = (state * 33 + value + i) % 256
+      p = p + 3
+      m = m + 1
+    end
+  end
+  if p ~= #s + 1 or m ~= 48 then
+    return fail()
+  end
+  return table.concat(o)
+end
+
+local function lifecycle_manager(S0, COEFFS, fail)
+  local s = S0
+  local key = nil
+  local handoff = nil
+  local localClaim = nil
+  local root = {}
+  local generation = 0
+  local registry = setmetatable({}, { __mode = "k" })
+  local sources = {}
+  local rooted = false
+  local function source(d, k, c, meta)
+    local q = sources[c]
+    if q then
+      if q[1] ~= k or q[8] ~= d then
+        return fail()
+      end
+      if meta then
+        for i = 1, 5 do
+          if q[i + 2] ~= meta[i] then
+            return fail()
+          end
+        end
+      end
+      return q
+    end
+    meta = meta or {}
+    local nq = { k, c, meta[1], meta[2], meta[3], meta[4], meta[5], d }
+    if table.freeze then
+      table.freeze(nq)
+    end
+    sources[c] = nq
+    return nq
+  end
+  local function mint(d, k, c, lineage, kx, parent, q)
+    if type(d) ~= "table" or type(d[3]) ~= "number" or type(k) ~= "table" or type(c) ~= "table" then
+      return fail()
+    end
+    generation = generation + 1
+    local m = (s + generation * 31 + d[3] * 17 + parent) % 65521
+    local execution = (m * 131 + generation * 43 + d[3] * 73 + COEFFS[1] * 997 + COEFFS[2] * 211 + COEFFS[3] * 307 + COEFFS[4] * 401 + s * 17) % 65521
+    local r = { {}, generation, kx, m, (m * 257 + d[3] * 13) % 65521, (m * 17 + generation * 7) % 65521, lineage, d, k, c, 0, q, execution }
+    local saved = {}
+    for i = 1, 13 do
+      saved[i] = r[i]
+    end
+    registry[r] = saved
+    return { d, r }
+  end
+  return function(op, p, k, c, d, meta)
+    if op == 0 then
+      if rooted then
+        return fail()
+      end
+      rooted = true
+      if type(handoff) ~= "function" or type(localClaim) ~= "function" then
+        return fail()
+      end
+      local TR, proof = handoff(p, c)
+      handoff = nil
+      localClaim(TR, true)
+      localClaim = nil
+      if type(TR) ~= "table" or type(proof) ~= "number" or proof % 1 ~= 0 then
+        return fail()
+      end
+      root = TR
+      s = (s + proof) % 65521
+      return mint(p, k, c, root, p, s, source(p, k, c, d))
+    elseif op == 1 then
+      local saved = type(p) == "table" and registry[p]
+      if not saved or saved[11] ~= 1 or p[11] ~= 1 or saved[12] ~= p[12] or saved[13] ~= p[13] then
+        return fail()
+      end
+      for i = 1, 10 do
+        if saved[i] ~= p[i] then
+          return fail()
+        end
+      end
+      local lineage, kx, parent = saved[7], saved[3], saved[4]
+      local q = source(d, k, c, meta)
+      return function()
+        return mint(d, k, c, lineage, kx, parent, q)
+      end
+    elseif op == 2 then
+      if type(p) ~= "table" then
+        return fail()
+      end
+      local r = p[2]
+      local saved = type(r) == "table" and registry[r]
+      if not saved or saved[11] ~= 0 or r[11] ~= 0 or saved[8] ~= p[1] or saved[9] ~= k or saved[10] ~= c or saved[12] ~= r[12] or saved[13] ~= r[13] then
+        return fail()
+      end
+      for i = 1, 10 do
+        if saved[i] ~= r[i] then
+          return fail()
+        end
+      end
+      saved[11] = 1
+      r[11] = 1
+      return r
+    elseif op == 3 then
+      local saved = registry[p]
+      if not saved or saved[11] ~= 1 or p[11] ~= 1 or saved[12] ~= p[12] or saved[13] ~= p[13] then
+        return fail()
+      end
+      for i = 1, 10 do
+        if saved[i] ~= p[i] then
+          return fail()
+        end
+      end
+      return saved[5], saved[6]
+    elseif op == 4 then
+      local saved = registry[p]
+      if not saved or saved[11] ~= 1 or p[11] ~= 1 then
+        return fail()
+      end
+      p[11] = 2
+      registry[p] = nil
+      return
+    end
+    return fail()
+  end
+end
+
+local SNAPSHOT_FIELDS = { "fresh", "generation", "kx", "m", "chk1", "chk2", "lineage", "d", "k", "c", "state", "q", "execution" }
+local SOURCE_FIELDS = { "k", "c", "meta1", "meta2", "meta3", "meta4", "meta5", "d" }
+local SEED = { V2 = 34032, V3 = 45926 }
+local COEFFS = { V2 = { 3, 0, 1, 1 }, V3 = { 1, 1, 1, 0 } }
+local CACHE = { HANDLER_MAX = 2, VM_MAX = 4 }
+local VM_T_V2 = { A = 103, B = 112, C0 = 78, C1 = 42876 }
+local VM_T_V3 = { A = 96, B = 122, C0 = 122, C1 = 36369 }
+local HANDLER_BOOL = { V2_TRUE = 152, V2_FALSE = 41, V3_TRUE = 41, V3_FALSE = 152, NUM0 = 115, NUM1 = 78 }
+local function protected_index_factory(n, expected_count, fail)
+  local present = {}
+  local count = 0
+  for i, d in pairs(expected_count) do
+    if type(i) ~= "number" or i % 1 ~= 0 or i < 1 or i > n or type(d) ~= "table" then
+      return fail()
+    end
+    present[i] = true
+    count = count + 1
+  end
+  return present, count
+end
+
+return {
+  fail_nil = fail_nil,
+  fail_msg = fail_msg,
+  outer_decode = outer_decode,
+  capture_env = capture_env,
+  behavioral_canary = behavioral_canary,
+  table_sum_32640 = table_sum_32640,
+  xor_fold = xor_fold,
+  adler32 = adler32,
+  desc72 = desc72,
+  payload_integrity = payload_integrity,
+  PAYLOAD_V3_FINAL = PAYLOAD_V3_FINAL,
+  PAYLOAD_STAGES_V2 = PAYLOAD_STAGES_V2,
+  PAYLOAD_STAGES_V3 = PAYLOAD_STAGES_V3,
+  LANE_BASES_V2 = LANE_BASES_V2,
+  LANE_BASES_V3 = LANE_BASES_V3,
+  WATCHDOG_V2 = WATCHDOG_V2,
+  WATCHDOG_V3 = WATCHDOG_V3,
+  HEADER_XZ = HEADER_XZ,
+  TAIL_V2 = TAIL_V2,
+  TAIL_V3 = TAIL_V3,
+  VM_BIAS_V2 = VM_BIAS_V2,
+  VM_BIAS_V3 = VM_BIAS_V3,
+  OPCODES_V3 = OPCODES_V3,
+  OPCODES_V2 = OPCODES_V2,
+  DEAD = DEAD,
+  FOLD = FOLD,
+  OUTER_V2 = OUTER_V2,
+  OUTER_V3 = OUTER_V3,
+  DECODER_KEYS_V3 = DECODER_KEYS_V3,
+  DECODER_PROG_V3 = DECODER_PROG_V3,
+  KEYDERIVE_S_V2 = KEYDERIVE_S_V2,
+  KEYDERIVE_S_V3 = KEYDERIVE_S_V3,
+  KEYDERIVE_R_V2 = KEYDERIVE_R_V2,
+  KEYDERIVE_R_V3 = KEYDERIVE_R_V3,
+  OUTER_ORDER_V2 = OUTER_ORDER_V2,
+  OUTER_ORDER_V3 = OUTER_ORDER_V3,
+  TFORM = TFORM,
+  WATCH_HI = WATCH_HI,
+  BASES = BASES,
+  ALPH92LEN = ALPH92LEN,
+  FAIL_COUNT = FAIL_COUNT,
+  DESC_FIELDS = DESC_FIELDS,
+  VM_FETCH = VM_FETCH,
+  HANDLER_IDS_V2 = HANDLER_IDS_V2,
+  HANDLER_IDS_V3 = HANDLER_IDS_V3,
+  HANDLER_BSTR_V2 = HANDLER_BSTR_V2,
+  HANDLER_BSTR_V3 = HANDLER_BSTR_V3,
+  R_BSTR_V2 = R_BSTR_V2,
+  R_BSTR_V3 = R_BSTR_V3,
+  OUTER_RAW = OUTER_RAW,
+  U_COUNT = U_COUNT,
+  LIFECYCLE = LIFECYCLE,
+  MT_GUARDS = MT_GUARDS,
+  FILE_BYTES = FILE_BYTES,
+  ENV_NAMES = ENV_NAMES,
+  DISPATCH_V2_W1 = DISPATCH_V2_W1,
+  DISPATCH_V2_W2 = DISPATCH_V2_W2,
+  DISPATCH_V2_W3 = DISPATCH_V2_W3,
+  DISPATCH_V3_W1 = DISPATCH_V3_W1,
+  DISPATCH_V3_W2 = DISPATCH_V3_W2,
+  DISPATCH_V3_W3 = DISPATCH_V3_W3,
+  VM_BRANCH_V3_M = VM_BRANCH_V3_M,
+  VM_BRANCH_V3_N = VM_BRANCH_V3_N,
+  VARINT = VARINT,
+  FAMILY = FAMILY,
+  SNAPSHOT_FIELDS = SNAPSHOT_FIELDS,
+  SOURCE_FIELDS = SOURCE_FIELDS,
+  SEED = SEED,
+  COEFFS = COEFFS,
+  CACHE = CACHE,
+  VM_T_V2 = VM_T_V2,
+  VM_T_V3 = VM_T_V3,
+  HANDLER_BOOL = HANDLER_BOOL,
+  lifecycle_manager = lifecycle_manager,
+  protected_index_factory = protected_index_factory,
+}
