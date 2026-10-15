@@ -1,0 +1,98 @@
+-- Moonveil Anti-Tamper | Generated from Lua Land Hub | .gg/Zame2JAGDr
+		
+do
+    local INVALID_MEMBER = "ndKvWRnSKYzhBhualx_"
+    local TRACE_MARKER = "SIOyDNtDoX"
+    local KEY_SEED = "\215\253Pm\201R\197\183\225rYU\177\157\2477"
+
+    local function fail()
+        error("MoonVeil environment integrity check failed", 0)
+    end
+
+    local function errorContainsInvalidMember(value)
+        if type(value) ~= "string" then
+            fail()
+        end
+
+        return value:find(INVALID_MEMBER, 1, true) ~= nil
+    end
+
+    local function requireNonCallable(value)
+        local ok, result = pcall(function()
+            value()
+        end)
+
+        if ok or errorContainsInvalidMember(result) then
+            fail()
+        end
+    end
+
+    local function probeInvalidMember(value, knownMember, expectedSeedLength, mustFail)
+        local ok, result = pcall(function()
+            if value[knownMember] and #KEY_SEED == expectedSeedLength then
+            end
+
+            if value[INVALID_MEMBER] then
+            end
+        end)
+
+        if ok then
+            if mustFail then
+                fail()
+            end
+            return
+        end
+
+        if not errorContainsInvalidMember(result) then
+            fail()
+        end
+    end
+
+    if game == nil or Enum == nil then
+        fail()
+    end
+
+    requireNonCallable(game)
+    probeInvalidMember(game, "GetService", 16, false)
+    probeInvalidMember(game, "workspace", 16, false)
+
+    requireNonCallable(Enum)
+    probeInvalidMember(Enum, "Font", 32, true)
+    probeInvalidMember(Enum, "Material", 32, false)
+
+    if type(debug) ~= "table"
+        or type(debug.traceback) ~= "function"
+        or type(debug.info) ~= "function"
+    then
+        fail()
+    end
+
+    local traceback = debug.traceback(TRACE_MARKER)
+    if type(traceback) ~= "string" then
+        fail()
+    end
+
+    local firstNewline = traceback:find("\n", 1, true)
+    if firstNewline == nil then
+        fail()
+    end
+
+    local firstTraceLine = traceback:sub(1, firstNewline - 1)
+    local lineIterator = traceback:gmatch(":(%d*)\n")
+    local firstLineNumber = lineIterator()
+    local lineCount = 1
+
+    for lineNumber in lineIterator do
+        local _ = firstLineNumber ~= lineNumber and lineCount < 2
+        lineCount = lineCount + 1
+    end
+
+    local currentLine = debug.info(1, "l")
+    if type(currentLine) ~= "number" and type(currentLine) ~= "string" then
+        fail()
+    end
+
+    local _ = firstTraceLine == TRACE_MARKER
+        and lineCount >= 2
+        and firstLineNumber == "" .. currentLine
+end
