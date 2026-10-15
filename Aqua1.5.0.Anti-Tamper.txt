@@ -1,0 +1,180 @@
+-- leaked by @kfclarps
+do
+local IQ, rr, pt, nt = pcall, error, type, rawequal
+local function yP() while true do end end
+local gh = {}
+local ZC = nil
+local function Hc(Gl, AO)
+    if not Gl then ZC = AO; rr("a168136978", 0) end
+end
+local function xP(aw, nC)
+    gh[#gh + 1] = {aw, nC}
+    return aw
+end
+local zQ = {pcall, error, type, rawequal, string.byte, buffer.readu32, Instance.new, task.wait, debug.info}
+local mR, wC = IQ(function()
+do
+    local Zd = false
+    xP(task.defer(function() Zd = true end), "thread")
+    local dM = os.clock() + 3
+    while not Zd and os.clock() < dM do task.wait() end
+    Hc(Zd, "")
+    local Uy = xP(coroutine.create(function(Th)
+        local Ia = coroutine.yield(Th + 1, nil, Th + 2)
+        return Ia + 3
+    end), "coroutine")
+    local iT = table.pack(coroutine.resume(Uy, 612258))
+    Hc(iT.n == 4 and iT[1] == true and iT[2] == 612259 and iT[3] == nil and iT[4] == 612260 and coroutine.status(Uy) == "suspended", "")
+    local wz, dt = coroutine.resume(Uy, 612258)
+    Hc(wz and dt == 612261 and coroutine.status(Uy) == "dead", "")
+end
+do
+    local NH = xP(Instance.new("BindableEvent"), "instance")
+    local wO = 612258
+    local fy = nil
+    local zi = xP(NH.Event:Connect(function(gX) fy = gX end), "connection")
+    NH:Fire(wO)
+    local Ai = os.clock() + 3
+    while fy == nil and os.clock() < Ai do task.wait() end
+    Hc(nt(fy, wO), "")
+    zi:Disconnect()
+    NH:Fire(612259)
+    task.wait()
+    Hc(nt(fy, wO) and not zi.Connected, "")
+end
+do
+    local UF = 612258
+    local function an() UF = UF + challenge; return UF end
+    local iX = getfenv(an)
+    local Zl = {challenge=7}
+    Hc(nt(setfenv(an, Zl), an) and nt(getfenv(an), Zl), "")
+    Hc(an() == 612265, "")
+    setfenv(an, iX)
+    Hc(nt(getfenv(an), iX), "")
+    Hc(not IQ(setfenv, an, 0), "")
+    Hc(nt(debug.info(string.byte, "f"), string.byte) and nt(debug.info(an, "f"), an), "")
+end
+do
+    local PP = xP(Instance.new("Model"), "instance")
+    local Fd = xP(Instance.new("Part"), "instance")
+    Fd.Name = "Target"
+    Fd.Anchored = true
+    Fd.Size = Vector3.new(2, 3, 4)
+    Fd.Parent = PP
+    local ne = xP(Instance.new("ObjectValue"), "instance")
+    ne.Name = "Reference"
+    ne.Value = Fd
+    ne.Parent = PP
+    Fd:SetAttribute("a992515803", 612258)
+    Hc(not IQ(Fd.SetAttribute, Fd, "invalid", function() end), "")
+    local ri = xP(PP:Clone(), "instance")
+    local HW = ri:FindFirstChild("Target")
+    local ro = ri:FindFirstChild("Reference")
+    Hc(ri ~= PP and ri.Parent == nil and HW ~= nil and HW ~= Fd, "")
+    Hc(ro ~= nil and nt(ro.Value, HW) and not nt(ro.Value, Fd), "")
+    Hc(HW.Size == Fd.Size and HW.Anchored and HW:GetAttribute("a992515803") == 612258, "")
+    local Zs = 0
+    local fa = nil
+    local hS = xP(Fd:GetAttributeChangedSignal("a992515803"):Connect(function()
+        Zs = Zs + 1
+        fa = Fd:GetAttribute("a992515803")
+    end), "connection")
+    Fd:SetAttribute("a992515803", 612259)
+    local ee = os.clock() + 3
+    while Zs == 0 and os.clock() < ee do task.wait() end
+    Hc(Zs == 1 and fa == 612259 and hS.Connected, "")
+    hS:Disconnect()
+    Fd:SetAttribute("a992515803", 612260)
+    task.wait()
+    Hc(not hS.Connected and Zs == 1, "")
+    PP:Destroy()
+    Hc(Fd.Parent == nil and #PP:GetChildren() == 0 and not IQ(function() Fd.Parent = ri end), "")
+end
+do
+    local ir = {}
+    local Rx, lR = IQ(rr, ir, 0)
+    Hc(not Rx and nt(lR, ir), "")
+    local TP, SF = xpcall(function() rr(ir, 0) end, function(qq) return qq end)
+    Hc(not TP and nt(SF, ir), "")
+    local mx = table.pack(IQ(function() return 612258, nil, 612259, nil end))
+    Hc(mx.n == 5 and mx[1] == true and mx[2] == 612258 and mx[3] == nil and mx[4] == 612259 and mx[5] == nil, "")
+    local Vl = 0
+    local IG = setmetatable({}, {__index=function(hn, eC) return eC == 612258 and ir or nil end, __newindex=function(Xf, hz, Mr) Vl = hz + Mr end, __metatable=ir})
+    Hc(nt(IG[612258], ir) and rawget(IG, 612258) == nil and nt(getmetatable(IG), ir), "")
+    IG[612258] = 7
+    Hc(Vl == 612265 and rawget(IG, 612258) == nil, "")
+    Hc(not IQ(setmetatable, IG, {}), "")
+    local fT = table.freeze({value=612258})
+    Hc(table.isfrozen(fT) and not IQ(function() fT.value = 0 end) and fT.value == 612258, "")
+end
+do
+    Hc(pt(game) == "userdata" and typeof(game) == "Instance" and game.ClassName == "DataModel", "")
+    Hc(nt(workspace.Parent, game) and nt(game:GetService("Workspace"), workspace), "")
+    Hc(pt(getmetatable(game)) == "string", "")
+    local pH = game:GetService("Players")
+    local Bo = game:GetService("RunService")
+    Hc(not (Bo:IsClient() and Bo:IsServer()), "")
+    Hc(not IQ(game.GetChildren, nil), "")
+    local IB = pH.LocalPlayer
+    if Bo:IsClient() then
+        Hc(IB ~= nil and IB:IsA("Player") and nt(IB.Parent, pH), "")
+        Hc(pt(IB.Name) == "string", "")
+        Hc(table.find(pH:GetPlayers(), IB) ~= nil and nt(pH:GetPlayerByUserId(IB.UserId), IB), "")
+    end
+    local Um = Enum.HumanoidRigType
+    local Va = Um.R6
+    Hc(typeof(Um) == "Enum" and typeof(Va) == "EnumItem" and nt(Va.EnumType, Um), "")
+    Hc(nt(Um:FromName(Va.Name), Va) and nt(Um:FromValue(Va.Value), Va), "")
+end
+do
+    Hc(pt(buffer) == "table" and pt(buffer.create) == "function", "")
+    local Ka = buffer.create(48)
+    Hc(pt(Ka) == "buffer" and typeof(Ka) == "buffer" and buffer.len(Ka) == 48, "")
+    buffer.writeu32(Ka, 0, 4247163837)
+    buffer.writei16(Ka, 4, -12345)
+    buffer.writef32(Ka, 6, 1.25)
+    buffer.writef64(Ka, 10, -1234.5)
+    buffer.writestring(Ka, 18, "A\000z")
+    Hc(buffer.readu32(Ka, 0) == 4247163837 and buffer.readi16(Ka, 4) == -12345 and buffer.readf32(Ka, 6) == 1.25 and buffer.readf64(Ka, 10) == -1234.5 and buffer.readstring(Ka, 18, 3) == "A\000z", "")
+    Hc(buffer.readu8(Ka, 0) == 189 and buffer.readu8(Ka, 3) == 253, "")
+    Hc(not IQ(buffer.readu32, Ka, 46) and not IQ(buffer.writeu8, Ka, -1, 0), "")
+    local Hr = buffer.fromstring("abcdef")
+    buffer.copy(Hr, 1, Hr, 0, 5)
+    Hc(buffer.tostring(Hr) == "aabcde", "")
+    local YR = buffer.create(8)
+    buffer.writebits(YR, 3, 19, 431037)
+    Hc(buffer.readbits(YR, 3, 19) == 431037, "")
+    Hc(bit32.bxor(4247163837, 3739379649) == 600110204 and bit32.band(4247163837, 3739379649) == 3693216641, "")
+end
+do
+    local vU = Vector3.new(3, -7, 11).Unit
+    local IZ = CFrame.fromAxisAngle(vU, 1.137) + Vector3.new(4, 8, -3)
+    local pX = Vector3.new(9.25, -3.5, 17.75)
+    Hc(typeof(IZ) == "CFrame" and (IZ:PointToWorldSpace(IZ:PointToObjectSpace(pX)) - pX).Magnitude < 0.0001, "")
+    local vV, cK = IZ:ToAxisAngle()
+    Hc(math.abs(cK - 1.137) < 0.00001 and math.abs(math.abs(vV:Dot(vU)) - 1) < 0.00001, "")
+    Hc(math.abs(vU.Magnitude - 1) < 0.00001 and vU:Cross(vU).Magnitude < 0.00001, "")
+    local ng = Random.new(478390579)
+    local Vi = ng:Clone()
+    Hc(typeof(Vi) == "Random", "")
+    for qE = 1, 7 do
+        Hc(ng:NextInteger(-100000, 100000) == Vi:NextInteger(-100000, 100000), "")
+        local RY, qL = ng:NextNumber(), Vi:NextNumber()
+        Hc(RY == qL and RY >= 0 and RY <= 1, "")
+    end
+end
+local ce = {pcall, error, type, rawequal, string.byte, buffer.readu32, Instance.new, task.wait, debug.info}
+for KE = 1, #zQ do Hc(nt(zQ[KE], ce[KE]), "") end
+end)
+for MT = #gh, 1, -1 do
+    local Iz = gh[MT]
+    if Iz[2] == "connection" then IQ(function() Iz[1]:Disconnect() end)
+    elseif Iz[2] == "instance" then IQ(function() Iz[1]:Destroy() end)
+    elseif Iz[2] == "thread" then IQ(task.cancel, Iz[1])
+    elseif Iz[2] == "coroutine" then IQ(coroutine.close, Iz[1]) end
+end
+if not mR then
+    warn("u got caught")
+    yP()
+end
+end
