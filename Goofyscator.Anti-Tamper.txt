@@ -1,0 +1,1583 @@
+local unpack = table.unpack or unpack
+
+local bxor do
+  local native = (type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor)
+    or (type(_G) == "table" and type(_G.bit32) == "table" and type(_G.bit32.bxor) == "function" and _G.bit32.bxor)
+  if native then
+    bxor = function(a, b) return native(a % 0x100000000, b % 0x100000000) end
+  else
+    bxor = function(a, b)
+      a = a % 0x100000000; b = b % 0x100000000
+      local r, p = 0, 1
+      for _ = 1, 32 do
+        local abit, bbit = a % 2, b % 2
+        if abit ~= bbit then r = r + p end
+        a, b = (a - abit) / 2, (b - bbit) / 2
+        p = p * 2
+      end
+      return r
+    end
+  end
+end
+
+local vm = {}
+
+local STRIKE_BUDGET = 64
+local ENV_FRAME_LIMIT = 0x3EA
+local CALL_REENTRY_LIMIT = 0x434C
+local HOP_MODULUS = 6
+local NONRING_WRAP_PERCENT = 12
+local ACCESS_SLACK = 4
+local MAX_SCHEDULED_CONSTS = 96
+local HASH_SAMPLE_ROUNDS = 12
+local KNOCK_KEY = 0x643FC
+local CONST_SLOT_XOR = 0x5375
+local CONST_SLOT_SUB = 0x1713
+local PRIME_2P31 = 0x7FFFFFFF
+
+local PHASE_SEALED = 1
+local PHASE_VERIFIED = 2
+local PHASE_RUNNING = 3
+local PHASE_DONE = 4
+
+local FRAME_REGISTERS = 0x2C47
+local FRAME_UPVALUES = 0x6A18
+local FRAME_GLOBALS = 0x2245
+local FRAME_IP = 0x32D2
+local FRAME_IP_BIAS_HI = 0x2617
+local FRAME_IP_BIAS_LO = 0x2CF9
+local FRAME_PARAM_SPLIT = 0x9F7
+local FRAME_VARARGS = 0x782C
+local FRAME_ENV = 0x16F9
+local FRAME_PROTO_CACHE = 0x4249
+local FRAME_REF_BOXES = 0x5676
+local FRAME_CONST_CACHE = 0x2101
+local FRAME_RETURNS = 0x13E2
+local FRAME_CALL_SWAP = 0x1356
+local FRAME_IDENTITY = 0x261A
+local FRAME_RESERVED = 0x4637
+local IP_BIAS_HI_DEFAULT = 0x187244
+local IP_BIAS_LO_DEFAULT = 0x78F2
+
+local INSTR_OPERANDS = 1
+local INSTR_OPCODE = 3
+local INSTR_SUBINSTRS = 6
+local INSTR_PAYLOAD = 7
+local INSTR_DST = 8
+local INSTR_HANDLER = 9
+local INSTR_PROTECTED = 0x1C77
+local INSTR_CLONE_FLAG = 0x166C
+local INSTR_LINE = 0x39B2
+local INSTR_POLY_CELL = 0x6A59
+
+local TAG_DEFAULT = 0x2F55
+local TAG_IMMEDIATE = 0x61C6
+local TAG_REGISTER = 0x142F
+local TAG_GLOBAL = 0x28C7
+local TAG_CONST = 0x7B92
+local CELL_TAG = 0x7578
+local CELL_VALUE = 0x6B75
+
+local DST_ENCODE_ADD = 0x698BD
+local DST_DECODE_MUL = 0xE4D5D
+local function decodeDst(instr)
+  return ((instr[INSTR_DST] or DST_ENCODE_ADD) - DST_ENCODE_ADD) * DST_DECODE_MUL % 0xFFFFD
+end
+
+local decryptConst
+local readVarint, readDXM, qjCrypt, mnpcMap, scanConstRecords
+local readRecordMeta, constReadKey, constIVD
+local b91Decode, gateI, gateCNS, tncDecompress, ixqvKeyUnwrap
+
+local function sampledHash(text, seed)
+  if type(text) ~= "string" then return 0 end
+  local h = (seed or 0x7CCA) % PRIME_2P31
+  local len = #text
+  if len == 0 then return h end
+  local rounds = len < HASH_SAMPLE_ROUNDS and len or HASH_SAMPLE_ROUNDS
+  for i = 1, rounds do
+    local pos = ((h + i * 381) % len) + 1
+    local byte = string.byte(text, pos) or 0
+    h = (h * 929 + byte * (i + 223) + pos * 641 + 0xBE05) % PRIME_2P31
+  end
+  return h
+end
+
+local function sealInstaller(vmTable, envArg)
+  if vmTable.seal ~= nil then return end
+  local blob = vmTable.programBlob
+  if type(blob) ~= "string" or blob == "" then return end
+  vmTable.programBlob = nil
+  vmTable.sandbox = envArg or vmTable.sandbox
+    or (_ENV or (getfenv and getfenv()) or _G)
+  blob = vmTable.I(vmTable, blob)
+  local sub, byteStr = string.sub, string.byte
+  if #blob < 18 then return end
+  local cursor = 1
+  local function readNibblePair()
+    local hi, lo = byteStr(blob, cursor), byteStr(blob, cursor + 1)
+    if not hi or not lo or hi < 65 or hi > 80 or lo < 80 or lo > 95 then return nil end
+    cursor = cursor + 2
+    return (hi - 65) * 16 + (lo - 80)
+  end
+  local headerMagic = readNibblePair()
+  if headerMagic == nil then return end
+  local function readLengthField(idx)
+    local pow, value, roll = 1, 0, (112 + idx * 104) % 256
+    for i = 1, 4 do
+      local nib = readNibblePair()
+      if not nib then return nil end
+      local mask = (18 + roll + i * 254 + idx * 104) % 256
+      local b = bxor(nib, mask)
+      value = value + b * pow
+      pow = pow * 256
+      roll = (roll + b + 155 + i * idx) % 256
+    end
+    return value
+  end
+  local mainLen, bootLen = readLengthField(1), readLengthField(2)
+  if not mainLen or not bootLen then return end
+  if headerMagic ~= bxor(212, (mainLen + bootLen + 112) % 256) then return end
+  local bodyStart = cursor
+  local mainStart = bodyStart + mainLen
+  local bodyEnd = mainStart + bootLen - 1
+  if bodyEnd ~= #blob then return end
+  local mainStr = sub(blob, bodyStart, mainStart - 1)
+  local bootstrapStr = sub(blob, mainStart, bodyEnd)
+  local identityStr = tostring(vmTable) .. tostring(vmTable.sandbox)
+  local identityHash = sampledHash(identityStr, 0x7CCA)
+  local payloadHash = sampledHash(mainStr, identityHash + #mainStr * 381)
+  payloadHash = (payloadHash + sampledHash(bootstrapStr, identityHash + #bootstrapStr * 0xBE05)) % PRIME_2P31
+  local programKey = (identityHash * 703 + payloadHash * 625 + #identityStr * 0xAB14 + 0x7CCA) % PRIME_2P31
+  if programKey == 0 then programKey = 0xAB14 end
+  vmTable.mainProgram = mainStr
+  vmTable.bootstrapString = bootstrapStr
+  vmTable.seal = { PHASE_SEALED, vmTable.sandbox, programKey, payloadHash, identityHash }
+end
+
+local function verifySeal(vmTable, program, env)
+  local seal = vmTable.seal
+  if type(seal) ~= "table" or seal[1] ~= PHASE_SEALED or seal[2] ~= env then
+    error("runtime error", 0)
+  end
+  local bootstrapStr = vmTable.bootstrapString
+  if type(program) ~= "string" or type(bootstrapStr) ~= "string" then
+    error("runtime error", 0)
+  end
+  local identityStr = tostring(vmTable) .. tostring(env)
+  local identityHash = sampledHash(identityStr, 0x7CCA)
+  local payloadHash = sampledHash(program, identityHash + #program * 381)
+  payloadHash = (payloadHash + sampledHash(bootstrapStr, identityHash + #bootstrapStr * 0xBE05)) % PRIME_2P31
+  local programKey = (identityHash * 703 + payloadHash * 625 + #identityStr * 0xAB14 + 0x7CCA) % PRIME_2P31
+  if programKey == 0 then programKey = 0xAB14 end
+  if seal[3] ~= programKey or seal[4] ~= payloadHash or seal[5] ~= identityHash then
+    error("runtime error", 0)
+  end
+  seal[1] = PHASE_VERIFIED
+  vmTable.bootKey = programKey
+end
+
+local function normalizeBootArgs(vmTable, envArg, varargs)
+  local t = type(envArg)
+  if vmTable.mainProgram == nil and vmTable.programBlob ~= nil then
+    sealInstaller(vmTable, varargs or (t == "table" and envArg) or nil)
+  end
+  if t == "table" and varargs == nil then
+    varargs = envArg
+    if vmTable.mainProgram == nil and vmTable.programBlob ~= nil then
+      sealInstaller(vmTable, varargs)
+    end
+    envArg = vmTable.mainProgram
+    vmTable.mainProgram = nil
+    t = type(envArg)
+  end
+  if t == "function" then
+    envArg = envArg(vmTable, varargs)
+    t = type(envArg)
+  end
+  if (t ~= "string" and t ~= "table") or envArg == "" then
+    return nil, varargs
+  end
+  return envArg, varargs
+end
+
+local SANDBOX_LIB_WHITELIST = {
+  string = { "byte", "char", "sub", "gsub" },
+  table = { "concat", "unpack", "find" },
+  math = { "abs", "ceil", "floor", "fmod", "max", "min", "sqrt" },
+  bit32 = { "band", "bor", "bxor", "bnot", "lshift", "rshift", "arshift", "lrotate", "rrotate", "extract", "replace" },
+}
+local SANDBOX_GLOBAL_WHITELIST = {
+  "error", "getfenv", "getmetatable", "load", "loadstring", "next", "pcall",
+  "rawget", "rawset", "select", "setfenv", "setmetatable", "tonumber", "tostring",
+  "type", "unpack", "xpcall", "_G",
+}
+
+local function buildSandbox(vmTable, env)
+  local function copyLib(libName, fieldList)
+    local orig = env[libName]
+    if type(orig) ~= "table" then return orig end
+    local copy = {}
+    for i = 1, #fieldList do copy[fieldList[i]] = orig[fieldList[i]] end
+    return setmetatable(copy, { __index = orig, __metatable = false })
+  end
+  local sandbox = {
+    string = copyLib("string", SANDBOX_LIB_WHITELIST.string),
+    table = copyLib("table", SANDBOX_LIB_WHITELIST.table),
+    math = copyLib("math", SANDBOX_LIB_WHITELIST.math),
+    bit32 = copyLib("bit32", SANDBOX_LIB_WHITELIST.bit32),
+  }
+  for i = 1, #SANDBOX_GLOBAL_WHITELIST do
+    local name = SANDBOX_GLOBAL_WHITELIST[i]
+    local fn = env[name]
+    if fn ~= nil then sandbox[name] = fn end
+  end
+  sandbox = setmetatable(sandbox, { __index = env, __metatable = false })
+  vmTable.sandbox = sandbox
+  return sandbox
+end
+
+local function initVMState(vmTable, env)
+  vmTable.mainProgram = nil
+  vmTable.nilSentinel = {}
+  vmTable.fakeG = {}
+  vmTable.closureEnvCache = setmetatable({}, { __mode = "k" })
+  vmTable.closureEnvs = {}
+  local hiddenFrames = {}
+  vmTable.frameStack = setmetatable({}, {
+    __index = function(_, k) return hiddenFrames[k] end,
+    __newindex = function(_, k, v) hiddenFrames[k] = v end,
+    __len = function() return #hiddenFrames end,
+    __metatable = {},
+  })
+  vmTable.depthWitness = 0
+  vmTable.interpreterSnapshot = vmTable.RiGr
+  local fakeG = vmTable.fakeG
+  fakeG._G = fakeG
+  vmTable.limitedstackKey = "limited" .. "stack"
+  fakeG[vmTable.limitedstackKey] = true
+  setmetatable(fakeG, { __index = env, __metatable = {} })
+end
+
+local function installEnvEmulation(vmTable, env)
+  local realGetfenv, realSetfenv = env.getfenv, env.setfenv
+  local function frameAt(level)
+    if type(level) ~= "number" then
+      error("bad argument #1 to 'getfenv' (number expected)", 3)
+    end
+    local stack = vmTable.frameStack
+    local frame = stack[#stack - level + 1]
+    if not frame then error("invalid stack level", 3) end
+    return frame
+  end
+  local function envOfClosure(fn)
+    local swapper = vmTable.closureEnvCache and vmTable.closureEnvCache[fn]
+    if swapper then return swapper(vmTable.closureEnvs) end
+    return nil
+  end
+  local fakeG = vmTable.fakeG
+  fakeG.getfenv = function(what)
+    if what == nil then what = 1 end
+    local t = type(what)
+    if t == "number" then
+      if what == 0 then return vmTable.fakeG end
+      return frameAt(what)[FRAME_ENV]
+    elseif t == "function" then
+      local e = envOfClosure(what)
+      if e ~= nil then return e end
+      if realGetfenv then return realGetfenv(what) end
+    end
+    error("invalid argument to getfenv", 2)
+  end
+  fakeG.setfenv = function(what, newEnv)
+    newEnv = newEnv or vmTable.fakeG
+    local t = type(what)
+    if t == "number" then
+      if what == 0 then vmTable.fakeG = newEnv; return nil end
+      local frame = frameAt(what)
+      frame[FRAME_ENV] = newEnv
+      local closure = frame[FRAME_IDENTITY]
+      local swapper = closure and vmTable.closureEnvCache[closure]
+      if swapper then swapper(vmTable.closureEnvs, newEnv) end
+      return closure
+    elseif t == "function" then
+      local swapper = vmTable.closureEnvCache[what]
+      if swapper then
+        swapper(vmTable.closureEnvs, newEnv)
+        return what
+      end
+    end
+    error("cannot change environment", 2)
+  end
+  local realLoad = env.loadstring or env.load
+  if realLoad then
+    fakeG.loadstring = function(src, name)
+      local chunk, err = realLoad(src, name)
+      if type(chunk) == "function" and realSetfenv then
+        realSetfenv(chunk, vmTable.fakeG)
+      end
+      return chunk, err
+    end
+    fakeG.load = fakeG.loadstring
+  end
+end
+
+local PROGRAM_CHARSET = "0<TdsVS+4JO[:3qa(9/XA;]v8R~MGwhHxp\"YZ5t.*2%{DKNnuyC_F=!oUW1$>QBb#L^}i?cjmP|,l@z6k7fergEI&)`"
+
+local function initCharsetAndBits(vmTable, env)
+  local map = {}
+  for i = 1, #PROGRAM_CHARSET do
+    map[string.byte(PROGRAM_CHARSET, i)] = i - 1
+  end
+  vmTable.charset = map
+  vmTable.bitlib = bit32 or env.bit32 or vmTable.pureLuaBitlib
+end
+
+local function probeNativeSemantics(env)
+  local setmeta = env.setmetatable or setmetatable
+  local probeTable, sentinel, hookCalls = {}, {}, 0
+  local withMt = setmeta and setmeta(probeTable, {
+    __index = function(_, key) hookCalls = key; return sentinel end,
+    __metatable = false,
+  }) or probeTable
+  local ok = withMt == probeTable and hookCalls == 0
+    and next({}) == nil
+    and rawget({ 1 }, 1) == 1
+    and type(type) == "function"
+    and tonumber("1") == 1
+  if ok and setmeta then
+    ok = probeTable[1] == sentinel
+      and hookCalls == 1
+      and getmetatable(probeTable) == false
+      and rawset(probeTable, 1, sentinel) == probeTable
+      and rawget(probeTable, 1) == sentinel
+  end
+  if not ok then error("", 0) end
+  return true
+end
+
+local FUNC_HASH, NONFUNC_HASH, S_BASE = 0x64D, 408, 0x92A
+local function computeEnvChecksum(sandbox)
+  local S = S_BASE
+  local checked = {
+    sandbox.string and sandbox.string.byte,
+    sandbox.string and sandbox.string.char,
+    sandbox.table and sandbox.table.concat,
+    vm.bitlib and vm.bitlib.bxor,
+  }
+  for i = 1, #checked do
+    S = (S + (type(checked[i]) == "function" and FUNC_HASH or NONFUNC_HASH)) % 0x10000
+  end
+  return S
+end
+
+local MAC_MUL, MAC_ADD, MAC_RLM_MUL, MAC_XOR = 607, 0x13C5, 169, 0x19E4
+local function setConstMAC(vmTable, key, dstOperand)
+  local bit = vmTable.bitlib
+  vmTable.constMAC = bit.bxor(
+    ((key + MAC_ADD) * MAC_MUL + (vmTable.depthWitness or 0)
+      + (vmTable.bootKey or 0)
+      + ((vmTable.stateHash or 0x466C) * MAC_RLM_MUL)) % 0x10000, MAC_XOR)
+  vmTable.decryptVariant = (key + (dstOperand or 0) + (vmTable.depthWitness or 0)) % 4
+end
+
+local function collectConstSchedule(instr)
+  local ids, count = nil, 0
+  local function scanOperand(cell)
+    if type(cell) == "table" then
+      local tag = cell[CELL_TAG]
+      if tag == TAG_CONST or tag == TAG_GLOBAL then
+        count = count + 1
+        if count <= MAX_SCHEDULED_CONSTS then
+          if ids == nil then ids = {} end
+          ids[count + 2] = cell[CELL_VALUE] or 0
+        end
+      end
+    end
+  end
+  local operands = instr[INSTR_OPERANDS]
+  if operands ~= nil then
+    scanOperand(operands[2])
+    scanOperand(operands[3])
+  end
+  local subInstrs = instr[INSTR_SUBINSTRS]
+  if type(subInstrs) == "table" then
+    for i = 1, #subInstrs do
+      local sub = subInstrs[i]
+      if type(sub) == "table" then
+        local subOps = sub[INSTR_OPERANDS]
+        if subOps ~= nil then
+          scanOperand(subOps[2])
+          scanOperand(subOps[3])
+        end
+      end
+    end
+  end
+  local payload = instr[INSTR_PAYLOAD]
+  if type(payload) == "table" then
+    for i = 1, #payload do scanOperand(payload[i]) end
+  end
+  if ids == nil then return nil end
+  ids[1] = 0
+  ids[2] = count
+  return ids
+end
+
+local function issueConstTicket(vmTable, frame, instr, constTable)
+  local schedule = collectConstSchedule(instr)
+  if schedule == nil then return end
+  if constTable == nil and frame ~= nil then
+    constTable = frame[FRAME_GLOBALS]
+  end
+  if constTable == nil then return end
+  local weak = vmTable.weakRefcounts
+  if weak == nil then
+    weak = setmetatable({}, { __mode = "k" })
+    vmTable.weakRefcounts = weak
+  end
+  local refcount = (weak[constTable] or 0) + 1
+  schedule[1] = refcount
+  vmTable.pendingTicket = schedule
+  local _knock = constTable[KNOCK_KEY]
+  vmTable.pendingTicket = nil
+  weak[constTable] = refcount
+end
+
+local function buildConstTable(vmTable, blobStr, seedStr)
+  local sandbox = vmTable.sandbox
+  local _stringChar, _stringByte = sandbox.string.char, sandbox.string.byte
+  local _setmeta, _tableConcat = sandbox.setmetatable, sandbox.table.concat
+
+  local nameMapStr, cursor = readDXM(blobStr, 1)
+  local constStream
+  constStream, cursor = readDXM(blobStr, cursor)
+  local recordStarts = scanConstRecords(constStream)
+
+  local dirMapping = (nameMapStr ~= nil and nameMapStr ~= "") and mnpcMap(nameMapStr, seedStr) or nil
+
+  local seedA, seedB, seedC = 0, 0, 0
+  local hook = vmTable.polymorphicHook
+  if hook then seedA, seedB, seedC = hook(nil) end
+  local Bay = bxor(seedA or 0xD8FB, 0xD8FB)
+  local Gap = ((seedB or 0xBFD2) - 0xBFD2) % 0x10000
+  local Kav = bxor(seedC or 0xE843, 0xE843)
+  local envChecksum = computeEnvChecksum(sandbox)
+
+  local ticketCounter, activeTicket = 1, nil
+  local ticketCount, accessBudget = 0, 0
+  local poisonLatch, strikes = false, 0
+  local windowCheckOn = true
+  local oneTimeConstsOn = true
+  local constCache = {}
+  local descriptorMeta = {}
+  local keystreamCache = {}
+
+  local function keystreamSeed(a, b, c)
+    b = b or 0
+    if b <= 0 then return 0 end
+    a, c = a or 0, c or 0
+    local lvl1 = keystreamCache[a]
+    if lvl1 == nil then lvl1 = {}; keystreamCache[a] = lvl1 end
+    local lvl2 = lvl1[b]
+    if lvl2 == nil then lvl2 = {}; lvl1[b] = lvl2 end
+    local lvl3 = lvl2[c]
+    if lvl3 == nil then lvl3 = {}; lvl2[c] = lvl3 end
+    local hit = lvl3[b]
+    if hit ~= nil then return hit end
+    local s1 = ((b + 0xF78 + Bay) * 937 + a * 671 + c * 265 + b + 0xFA81 + Gap + Kav + envChecksum) % 0x10000
+    local s2 = ((b + 0x894 + Gap) * 597 + a + c * 85 + Bay + bxor(Kav, (a + c) % 0x10000) + envChecksum) % 0x10000
+    local s3 = (bxor(s1, s2) + b * 17 + a * 13 + c * 907 + b * 7 + envChecksum + 0x5308) % 0x10000
+    lvl3[b] = s3
+    return s3
+  end
+
+  local function descriptorInfo(dirId)
+    local cached = descriptorMeta[dirId]
+    if cached ~= nil then return cached[1], cached[2] end
+    local variantBits, crcHash = readRecordMeta(constStream, recordStarts[dirId])
+    descriptorMeta[dirId] = { variantBits, crcHash }
+    return variantBits, crcHash
+  end
+
+  local function strike()
+    strikes = strikes + 1
+    if strikes >= STRIKE_BUDGET then poisonLatch = true end
+  end
+
+  return setmetatable({}, {
+    __metatable = {},
+    __index = function(_, key)
+      if poisonLatch then return nil end
+
+      if windowCheckOn and key == KNOCK_KEY then
+        local ticket = vmTable.pendingTicket
+        vmTable.pendingTicket = nil
+        if type(ticket) == "table" and ticket[1] == ticketCounter then
+          ticketCounter = ticketCounter + 1
+          activeTicket = ticket
+          ticketCount = ticket[2] or 0
+          accessBudget = ticketCount + ACCESS_SLACK
+        else
+          strike()
+        end
+        return nil
+      end
+
+      local vHo = vmTable.depthWitness or 0
+      local z = vmTable.bootKey or 0
+      local expected = bxor(
+        ((key + MAC_ADD) * MAC_MUL + vHo + z + ((vmTable.stateHash or 0x466C) * MAC_RLM_MUL)) % 0x10000,
+        MAC_XOR)
+      if vmTable.constMAC ~= expected then
+        vmTable.decryptVariant = nil
+        if windowCheckOn then strike() end
+        return nil
+      end
+      vmTable.constMAC = nil
+
+      if windowCheckOn then
+        local found = false
+        if activeTicket ~= nil and accessBudget > 0 then
+          for i = 3, ticketCount + 2 do
+            if activeTicket[i] == key then found = true; break end
+          end
+        end
+        if not found then
+          vmTable.decryptVariant = nil
+          strike()
+          return nil
+        end
+        accessBudget = accessBudget - 1
+      end
+
+      local slot = bxor(key, CONST_SLOT_XOR) - CONST_SLOT_SUB
+      local cached = constCache[slot]
+      if cached ~= nil then
+        vmTable.decryptVariant = nil
+        if cached == vmTable.nilSentinel then return nil end
+        return cached
+      end
+      local dirKey = dirMapping and dirMapping[slot] or slot
+      local recPos = dirKey and recordStarts[dirKey]
+      if not recPos then
+        vmTable.decryptVariant = nil
+        return nil
+      end
+
+      local variantBits, expectedCrc = descriptorInfo(dirKey)
+      local isOneTime = oneTimeConstsOn and (variantBits % 4 < 2 or expectedCrc <= 0)
+      local _variant = vmTable.decryptVariant or 0
+      vmTable.decryptVariant = nil
+      local value = decryptConst(vmTable, {
+        stream = constStream,
+        recPos = recPos,
+        constId = slot,
+        key = seedStr,
+        bay = Bay,
+        gap = Gap,
+        kav = Kav,
+        envChecksum = envChecksum,
+        keystreamSeed = keystreamSeed,
+      })
+      if isOneTime then
+        constCache[slot] = (value == nil) and vmTable.nilSentinel or value
+        recordStarts[dirKey] = nil
+        if dirMapping then dirMapping[slot] = nil end
+      end
+      return value
+    end,
+  })
+end
+
+local RING_ALPHABET = "O7F40kNuxTIsSW6n-QipHBw3EtzPjr51MKLlZyCGd82VYeUmqXabJcvogAhf_DR9"
+
+local function buildDispatchTable(vmTable)
+  local dispatchLocked = false
+  local hidden = {}
+  local ringNext, ringPrev, ringSalt, alwaysWrap = {}, {}, {}, {}
+  local proxy = setmetatable({}, {
+    __index = function(_, k) return hidden[k] end,
+    __newindex = function(_, k, v)
+      if not dispatchLocked then hidden[k] = v end
+    end,
+    __pairs = function() return function() end end,
+    __metatable = false,
+  })
+  vmTable.handlerTable = proxy
+  dispatchLocked = true
+  return proxy
+end
+
+local function makeRingDecoder(vmTable, hidden, ringNext, ringPrev, ringSalt, alwaysWrap)
+  local byte = vmTable.sandbox.string.byte
+  local charMap = {}
+  for i = 1, #RING_ALPHABET do charMap[byte(RING_ALPHABET, i)] = i - 1 end
+  local function word36(blob, pos)
+    local w = 0
+    for place = 0, 5 do
+      local c = charMap[byte(blob, pos + place)]
+      if c == nil then return nil end
+      w = w + c * 2 ^ (6 * place)
+    end
+    if w >= 2 ^ 32 then return nil end
+    return math.floor(w)
+  end
+  return function(handler, blob, trampolineFirst, isAlwaysWrap)
+    if type(blob) ~= "string" or #blob < 12 or #blob % 6 ~= 0 then return end
+    local rolling = (word36(blob, 1) - 0x5E6BA07C) % 2 ^ 32
+    local trampoline = function(a, b, c) return handler(a, b, c) end
+    local first, prev, useTrampoline = nil, nil, trampolineFirst == 1
+    local i = 0
+    for pos = 7, #blob, 6 do
+      i = i + 1
+      rolling = (rolling + 522 + i * 0xDC7) % 2 ^ 32
+      local w = word36(blob, pos)
+      if w == nil then return end
+      local packed = (w - rolling) % 2 ^ 32
+      rolling = (rolling + w + 0x15F1) % 2 ^ 32
+      local salt = math.floor(packed / 0x1FFFF)
+      local slot = packed - salt * 0x1FFFF
+      if slot < 0 or slot >= 0x1FFFF or (salt ~= 0 and (salt < 64 or salt >= 0x7FFF)) then return end
+      hidden[slot] = useTrampoline and trampoline or handler
+      ringSalt[slot] = salt
+      if isAlwaysWrap then alwaysWrap[slot] = true end
+      if prev then ringNext[prev] = slot; ringPrev[slot] = prev else first = slot end
+      useTrampoline, prev = not useTrampoline, slot
+    end
+    if prev then ringNext[prev] = first; ringPrev[first] = prev end
+  end
+end
+
+local function makeChurnEngine(vmTable, hidden, ringNext, ringPrev, ringSalt, alwaysWrap)
+  local churnPRNG, armed, bootstrapPhase = 0, false, false
+  local seedA, seedB, seedC
+
+  local function hopper(vm2, frame, instr)
+    local cell = instr[INSTR_POLY_CELL]
+    local handler = cell and cell[1]
+    if not handler then return end
+    local countdown = (cell[3] or 1) - 1
+    if countdown <= 0 then
+      local slot, idx = cell[2] or 0, cell[4] or 0
+      churnPRNG = (churnPRNG * 0xA89B + idx * 0x45F + slot + 0xACC6) % PRIME_2P31
+      local newSlot
+      if churnPRNG % 2 == 0 then newSlot = ringNext[slot] else newSlot = ringPrev[slot] end
+      local newHandler = newSlot and hidden[newSlot]
+      local newSalt = newSlot and ringSalt[newSlot]
+      if newHandler and newSalt then
+        cell[1], cell[2], handler = newHandler, newSlot, newHandler
+        local eco = ((idx + 0x2F73) * 835 + 0x515) % 0xFFFF
+        local gf3 = ((idx + 0x4593) * 0x5A1 + 0x1DFD) % 0x1FFFF
+        cell[5] = bxor(newSalt + eco + gf3, 0x1DFD)
+      end
+      cell[3] = 2 + churnPRNG % HOP_MODULUS
+    else
+      cell[3] = countdown
+    end
+    return handler(vm2, frame, instr)
+  end
+
+  local function hook(arg, a, b, c, d)
+    if arg == true then
+      churnPRNG = (a or 0) + 0x6B17
+      armed, bootstrapPhase = true, true
+      return
+    elseif arg == false then
+      seedA, seedB, seedC = a, b, c
+      churnPRNG = (d or 0) + 0x6B17
+      armed, bootstrapPhase = true, false
+      return
+    elseif arg == nil then
+      return seedA, seedB, seedC
+    end
+    local instr, idx, slot, handler = arg, a, b, c
+    if not armed or ringNext[slot] == nil or (bootstrapPhase and not alwaysWrap[slot]) then
+      return handler
+    end
+    local roll = (idx * 0x45F + slot + churnPRNG + 0xACC6) % 100
+    if not alwaysWrap[slot] and roll >= NONRING_WRAP_PERCENT then return handler end
+    local countdown = alwaysWrap[slot] and 1 or 2 + (churnPRNG + idx + slot) % HOP_MODULUS
+    instr[INSTR_POLY_CELL] = { handler, slot, countdown, idx }
+    return hopper
+  end
+
+  return hook, hopper
+end
+
+local function makeFrame(vmTable, protoAndVarargs, params)
+  local seal = vmTable.seal
+  if type(seal) ~= "table" or (seal[1] ~= PHASE_VERIFIED and seal[1] ~= PHASE_RUNNING) then return end
+  local proto = protoAndVarargs and protoAndVarargs[1]
+  if not proto then return end
+  local snapInterpreter = vmTable.interpreterSnapshot
+  if snapInterpreter == nil then
+    vmTable.interpreterSnapshot = vmTable.RiGr
+  elseif vmTable.RiGr ~= snapInterpreter then
+    error("", 0)
+  end
+  vmTable.handlerTable = vmTable.handlerTable or vmTable.buildDispatchTable(vmTable)
+  local snapDispatch = vmTable.dispatchSnapshot
+  if snapDispatch == nil then
+    vmTable.dispatchSnapshot = vmTable.handlerTable
+  elseif vmTable.handlerTable ~= snapDispatch then
+    error("", 0)
+  end
+  local varargMap = protoAndVarargs[2]
+  if type(varargMap) == "table" then
+    varargMap = vmTable.cg(vmTable, "", "", varargMap)
+  end
+  vmTable.varargResolver = varargMap or function() return nil end
+  local cache = type(proto[0x25DE]) == "table" and proto[0x25DE] or {}
+  proto[0x25DE] = setmetatable({}, {
+    __index = function(_, k) return cache[k] end,
+    __newindex = function(_, k, v) cache[k] = v end,
+    __metatable = {},
+  })
+  local registers, varargs = {}, { n = 0 }
+  local fixedParams = proto[0x160E] or 0
+  if params then
+    local count = params.n or #params
+    local vi = 1
+    for i = 1, count do
+      registers[vmTable.varargResolver(vmTable, i - 1)] = params[i]
+      if i > fixedParams then
+        varargs[vi] = params[i]
+        vi = vi + 1
+      end
+    end
+    varargs.n = vi - 1
+  end
+  local paramSplit = (params and (params.n or #params) > 0) and (params.n or #params) - 1 or 0
+  local frame = {
+    [FRAME_REGISTERS] = registers,
+    [FRAME_UPVALUES] = {},
+    [FRAME_GLOBALS] = proto[0x24AE],
+    [FRAME_IP] = (IP_BIAS_HI_DEFAULT - IP_BIAS_LO_DEFAULT) + 1,
+    [FRAME_IP_BIAS_HI] = IP_BIAS_HI_DEFAULT,
+    [FRAME_IP_BIAS_LO] = IP_BIAS_LO_DEFAULT,
+    [FRAME_PARAM_SPLIT] = paramSplit,
+    [FRAME_VARARGS] = varargs,
+    [FRAME_ENV] = vmTable.fakeG,
+    [FRAME_PROTO_CACHE] = proto[0x25DE],
+    [FRAME_REF_BOXES] = {},
+    [FRAME_RESERVED] = 0,
+  }
+  return vmTable.RiGr(vmTable, frame, proto[0xB21])
+end
+
+local function interpreterLoop(vmTable, frame, instrArray)
+  local error_ = vmTable.sandbox.error or error
+  local seal = vmTable.seal
+  local phase = type(seal) == "table" and seal[1] or 0
+  if phase ~= PHASE_VERIFIED and phase ~= PHASE_RUNNING
+    and not (phase == PHASE_DONE and type(frame) == "table" and frame[FRAME_IDENTITY] ~= nil) then
+    error_("", 0)
+  end
+  local stack = vmTable.frameStack
+  local depth = #stack + 1
+  if depth > ENV_FRAME_LIMIT then error_("stack overflow", 2) end
+  local savedDepthWitness = vmTable.depthWitness
+
+  local function scrubFrame(f)
+    if type(f) ~= "table" then return end
+    f[FRAME_REGISTERS] = nil; f[FRAME_UPVALUES] = nil; f[FRAME_GLOBALS] = nil
+    f[FRAME_IP] = nil; f[FRAME_IP_BIAS_HI] = nil; f[FRAME_IP_BIAS_LO] = nil
+    f[FRAME_PARAM_SPLIT] = nil; f[FRAME_VARARGS] = nil; f[FRAME_ENV] = nil
+    f[FRAME_PROTO_CACHE] = nil; f[FRAME_RETURNS] = nil
+    f[FRAME_CALL_SWAP] = nil; f[FRAME_IDENTITY] = nil
+    f[FRAME_RESERVED] = nil; f[FRAME_CONST_CACHE] = nil
+  end
+
+  local function normalizeBias(f)
+    local hi, lo = f[FRAME_IP_BIAS_HI], f[FRAME_IP_BIAS_LO]
+    if hi == nil or lo == nil then
+      hi, lo = IP_BIAS_HI_DEFAULT, IP_BIAS_LO_DEFAULT
+      f[FRAME_IP_BIAS_HI], f[FRAME_IP_BIAS_LO] = hi, lo
+      f[FRAME_IP] = (f[FRAME_IP] or 1) + (hi - lo) - 1
+    end
+    return hi - lo
+  end
+
+  local reentries, ipBias = 0, normalizeBias(frame)
+
+  local function deriveHandler(instr, idx)
+    local gf3 = ((idx + 0x4593) * 0x5A1 + 0x1DFD) % 0x1FFFF
+    local eco = ((idx + 0x2F73) * 835 + 0x515) % 0xFFFF
+    local rawOp = bxor(instr[INSTR_OPCODE] or 0, 0x1DFD) - gf3
+    local effectiveOp = rawOp - eco
+    local key = ((bxor(effectiveOp, 0x3267) * 0x645) + 0x12CF6) % 0x1FFFF
+    key = ((key * 0xEBB9) + 0xED622) % 0x1D195
+    local handler = vmTable.handlerTable[key]
+    if handler then
+      local hook = vmTable.polymorphicHook
+      if hook then handler = hook(instr, idx, key, handler) or handler end
+      instr[INSTR_HANDLER] = handler
+    end
+    return handler
+  end
+
+  local function packResults(...)
+    return { n = select("#", ...), ... }
+  end
+
+  local function runFrame()
+    while true do
+      local biasedIP = frame[FRAME_IP]
+      local idx = biasedIP - ipBias
+      local instr = instrArray[idx]
+      if not instr then return end
+      frame[FRAME_IP] = biasedIP + 1
+      if instr[INSTR_PROTECTED] then
+        vmTable.advanceStateMAC(vmTable, frame, instr, idx)
+        vmTable.issueConstTicket(vmTable, frame, instr)
+      end
+      local handler = instr[INSTR_HANDLER]
+      if not handler then handler = deriveHandler(instr, idx) end
+      if not handler then return end
+      handler(vmTable, frame, instr)
+      local swap = frame[FRAME_CALL_SWAP]
+      if swap then
+        reentries = reentries + 1
+        if reentries > CALL_REENTRY_LIMIT then error_("stack overflow", 2) end
+        local oldFrame = frame
+        frame[FRAME_CALL_SWAP] = nil
+        local resume = vmTable.closureEnvCache and vmTable.closureEnvCache[swap[1]]
+        if resume then
+          frame, instrArray = resume(swap[2] or {}, swap.n or 0)
+          ipBias = normalizeBias(frame)
+          stack[depth] = frame
+          scrubFrame(oldFrame)
+        end
+      else
+        local results = frame[FRAME_RETURNS]
+        if results then
+          frame[FRAME_RETURNS] = nil
+          return unpack(results, 1, results.n or 0)
+        end
+      end
+    end
+  end
+
+  local ok, packed = (vmTable.sandbox.xpcall or xpcall)(
+    function() return packResults(runFrame()) end,
+    function(e) return e end)
+  scrubFrame(frame)
+  stack[depth] = nil
+  vmTable.depthWitness = savedDepthWitness
+  if not ok then error_(packed, 0) end
+  return unpack(packed, 1, packed.n or 0)
+end
+
+local function postBootScrub(vmTable)
+  local stack = vmTable.frameStack
+  if stack then
+    for i = 1, #stack do stack[i] = nil end
+  end
+  vmTable.programString = nil
+  vmTable.programBlob = nil
+  vmTable.psgGuard = nil
+  vmTable.depthWitness = nil
+  vmTable.sessionToken = nil
+  vmTable.bootstrapString = nil
+  vmTable.bootstrapProto = nil
+  vmTable.polymorphicHook = nil
+  local seal = vmTable.seal
+  if type(seal) == "table" then seal[2], seal[4], seal[5] = nil, nil, nil end
+  vmTable.auxLoader = nil
+  vmTable.auxProgramLoader = nil
+  vmTable.loadWrapper = nil
+  vmTable.deserializeStage = nil
+  vmTable.sealInstaller = nil
+end
+
+local function buildLazyInstrArray(vmTable, blob, seedStr)
+  local concat, byte, char = vmTable.sandbox.table.concat, vmTable.sandbox.string.byte, vmTable.sandbox.string.char
+  local rawset_ = vmTable.sandbox.rawset or rawset
+  if #seedStr == 0 then return {} end
+  local segOffset, segLen, decoded, pristine = {}, {}, {}, {}
+  local segCount, cursor = 1, 1
+  while cursor <= #blob do
+    local len
+    len, cursor = vmTable.h(vmTable, blob, cursor)
+    if len == nil or len < 0 or cursor + len - 1 > #blob then break end
+    segOffset[segCount], segLen[segCount] = cursor, len
+    cursor = cursor + len
+    segCount = segCount + 1
+  end
+  local function clonePristine(orig)
+    return {
+      [INSTR_OPCODE] = orig[INSTR_OPCODE],
+      [INSTR_DST] = orig[INSTR_DST],
+      [INSTR_OPERANDS] = orig[INSTR_OPERANDS],
+      [INSTR_PAYLOAD] = orig[INSTR_PAYLOAD],
+      [INSTR_SUBINSTRS] = orig[INSTR_SUBINSTRS],
+      [INSTR_PROTECTED] = orig[INSTR_PROTECTED],
+      [INSTR_HANDLER] = orig[INSTR_HANDLER],
+      [INSTR_POLY_CELL] = orig[INSTR_POLY_CELL],
+      [INSTR_CLONE_FLAG] = 1,
+    }
+  end
+  return setmetatable({}, {
+    __metatable = {},
+    __index = function(arr, m)
+      if decoded[m] then return decoded[m] end
+      local pristineOrig = pristine[m]
+      if pristineOrig then
+        local copy = clonePristine(pristineOrig)
+        decoded[m] = copy
+        return copy
+      end
+      local offset, length = segOffset[m], segLen[m]
+      if not offset or not length then return nil end
+      local out = {}
+      local stride = ((m + 50) % 4) * 2 + 17
+      local start = offset - 1
+      local roll0 = (m * 469 + 0x5F97) % 256
+      local seedIdx = m - 2 + ((m * 589 + 0x7332) % #seedStr)
+      local base = m * 29 + 0x9A1 + roll0
+      for j = 1, length do
+        local cipherByte = byte(blob, start + j)
+        local seedByte = byte(seedStr, ((seedIdx + j) % #seedStr) + 1)
+        local variantSel = ((m + 0x179B) * 273 + j) % 3
+        local key
+        if variantSel == 0 then
+          key = (base + j * stride + (j % 3) * roll0) % 256
+        elseif variantSel == 1 then
+          key = (base + j * (stride + 2) + (j % 5) * roll0 + (j * j + m) % 251) % 256
+        else
+          key = (base + j * (stride + 4) + bxor((j * roll0) % 256, (m + j) % 256)) % 256
+        end
+        out[j] = char(bxor(bxor(cipherByte, key), seedByte))
+      end
+      local instr = vmTable.decodeInstruction(vmTable, concat(out), m)
+      if instr and instr[INSTR_HANDLER] == nil and instr[INSTR_OPCODE] then
+        local gf3 = ((m + 0x4593) * 0x5A1 + 0x1DFD) % 0x1FFFF
+        local eco = ((m + 0x2F73) * 835 + 0x515) % 0xFFFF
+        local eff = bxor(instr[INSTR_OPCODE], 0x1DFD) - gf3 - eco
+        local key = ((bxor(eff, 0x3267) * 0x645) + 0x12CF6) % 0x1FFFF
+        key = ((key * 0xEBB9) + 0xED622) % 0x1D195
+        local handler = vmTable.handlerTable[key]
+        if handler then
+          local hook = vmTable.polymorphicHook
+          if hook then handler = hook(instr, m, key, handler) or handler end
+          instr[INSTR_HANDLER] = handler
+        end
+      end
+      local isCloneFlagged = type(instr) == "table" and instr[INSTR_CLONE_FLAG] ~= nil
+      if isCloneFlagged then
+        pristine[m] = instr
+        local copy = clonePristine(instr)
+        decoded[m] = copy
+        return copy
+      else
+        rawset_(arr, m, instr)
+        segOffset[m], segLen[m] = nil, nil
+      end
+      return instr
+    end,
+  })
+end
+
+local function executeDynamicInstruction(vmTable, frame, instr)
+  local image = instr[INSTR_PAYLOAD]
+  if type(image) ~= "string" or image == "" then return end
+  local bit, byte, char = vmTable.bitlib, vmTable.sandbox.string.byte, vmTable.sandbox.string.char
+  local bias = (frame[FRAME_IP_BIAS_HI] or IP_BIAS_HI_DEFAULT) - (frame[FRAME_IP_BIAS_LO] or IP_BIAS_LO_DEFAULT)
+  local pos = (frame[FRAME_IP] or 1) - bias - 1
+  if pos < 1 then return end
+  local state = ((pos + 0x7102 + 29) * 737 + 0x4509 + 0x79E7 + #image * 17) % 0x10000
+  local aux = pos * 41 + #image * 7
+  local out = {}
+  for j = 1, #image do
+    local cipherByte = byte(image, j)
+    local hi = vmTable.sandbox.math.floor(state / 128)
+    out[j] = char(bit.bxor(cipherByte, (state + j * 53 + aux + hi) % 256))
+    state = (state + cipherByte * 31 + j * 17 + pos * 3 + hi) % 0x10000
+  end
+  local decoded = vmTable.decodeInstruction(vmTable, vmTable.sandbox.table.concat(out), pos)
+  if type(decoded) ~= "table" then return end
+  instr[INSTR_OPCODE] = decoded[INSTR_OPCODE]
+  instr[INSTR_DST] = decoded[INSTR_DST]
+  instr[INSTR_OPERANDS] = decoded[INSTR_OPERANDS]
+  instr[INSTR_PAYLOAD] = decoded[INSTR_PAYLOAD]
+  instr[INSTR_SUBINSTRS] = decoded[INSTR_SUBINSTRS]
+  instr[INSTR_PROTECTED] = decoded[INSTR_PROTECTED]
+  if instr[INSTR_PROTECTED] then
+    vmTable.advanceStateMAC(vmTable, frame, instr, pos)
+    vmTable.issueConstTicket(vmTable, frame, instr)
+  end
+  instr[INSTR_HANDLER] = nil
+  local gf3 = ((pos + 0x4593) * 0x5A1 + 0x1DFD) % 0x1FFFF
+  local eco = ((pos + 0x2F73) * 835 + 0x515) % 0xFFFF
+  local eff = bit.bxor(instr[INSTR_OPCODE], 0x1DFD) - gf3 - eco
+  local key = ((bit.bxor(eff, 0x3267) * 0x645) + 0x12CF6) % 0x1FFFF
+  key = ((key * 0xEBB9) + 0xED622) % 0x1D195
+  local handler = vmTable.handlerTable[key]
+  if handler then
+    local hook = vmTable.polymorphicHook
+    if hook then handler = hook(instr, pos, key, handler) or handler end
+    instr[INSTR_HANDLER] = handler
+    return handler(vmTable, frame, instr)
+  end
+end
+
+local function makePhaseTransition(vmTable)
+  local fired = false
+  return function(a, b, c, d)
+    local seal = vmTable.seal
+    if fired or type(seal) ~= "table" or seal[1] ~= PHASE_VERIFIED then
+      error("", 0)
+    end
+    fired = true
+    seal[1] = PHASE_RUNNING
+    local hook = vmTable.polymorphicHook
+    if hook then
+      hook(false, a, b, c, ((d or 0) + (seal[3] or 0) + (seal[4] or 0)) % PRIME_2P31)
+    end
+    vmTable.sessionToken = nil
+  end
+end
+
+local function makeMetaOpcodes(vmTable, program, env, runMain, runAux, runReentrant)
+  local trp = makePhaseTransition(vmTable)
+  local function pack(...) return { n = select("#", ...), ... } end
+  return {
+    [0x5329] = function()
+      local token = vmTable.sessionToken
+      vmTable.sessionToken = nil
+      return token
+    end,
+    [0x27E4] = function(a, b, c, d)
+      trp(a, b, c, d)
+      return pack(runMain(vmTable, program, env))
+    end,
+    [0x2CE9] = function(a, b, c, d, auxStr, auxSeed)
+      trp(a, b, c, d)
+      return pack(runAux(vmTable, auxStr, auxSeed))
+    end,
+    [0x5EAB] = function(a, b, c, d)
+      trp(a, b, c, d)
+      return pack(runReentrant(vmTable, program, 0))
+    end,
+  }
+end
+
+local function runValidated(vmTable, env, bootFn)
+  local error_ = env.error or error
+  local pcall_ = env.pcall or pcall
+  if type(pcall_) ~= "function" then pcall_ = pcall end
+  local ok, result = pcall_(bootFn)
+  vmTable.sessionToken = nil
+  local phaseAdvanced = type(vmTable.seal) == "table" and vmTable.seal[1] == PHASE_RUNNING
+  if phaseAdvanced then vmTable.seal[1] = PHASE_DONE end
+  if not ok or type(result) ~= "table" then
+    error_("runtime error", 0)
+  end
+  if result[1] ~= true then
+    local msg = result[2]
+    if type(msg) ~= "string" or msg == "" then msg = "runtime error" end
+    error_(msg, 0)
+  end
+  if not phaseAdvanced then
+    error_("runtime error", 0)
+  end
+  local values = result[2]
+  if type(values) ~= "table" then
+    error_("runtime error", 0)
+  end
+  return unpack(values, 1, values.n or 0)
+end
+
+local function seedChurnPRNG(vmTable, program)
+  local hook = vmTable.polymorphicHook
+  if not hook then return end
+  local bootLen = type(vmTable.bootstrapString) == "string" and #vmTable.bootstrapString or 0
+  local progLen = type(program) == "string" and #program or 0
+  local seal = vmTable.seal
+  hook(true, (bootLen * 33 + progLen * 17 + (seal[3] or 0) + (seal[4] or 0) + 0x6B17) % PRIME_2P31)
+end
+
+local function advanceStateMAC(vmTable, frame, instr, idx)
+  local sandbox = vmTable.sandbox
+  local byteOf = (sandbox.string and sandbox.string.byte) or string.byte
+  local registers = frame[FRAME_REGISTERS]
+  local stateHash = vmTable.stateHash or 0x466C
+  local function mix(x)
+    stateHash = (stateHash * 899 + x + 0x13C5) % 0x10000
+  end
+  local TYPE_NIL, TYPE_BOOL, TYPE_NUMBER = 529, 811, 0x44F
+  local TYPE_STRING, TYPE_TABLE, TYPE_FUNCTION = 0x61D, 0x72D, 0x83B
+  local TYPE_THREAD, TYPE_USERDATA = 0x941, 0xA57
+  local function hashValue(value, salt)
+    local typeHash, acc, t = 329, 0, type(value)
+    if t == "nil" then
+      typeHash = TYPE_NIL
+    elseif t == "boolean" then
+      typeHash = TYPE_BOOL; acc = value and 1 or 0
+    elseif t == "number" then
+      typeHash = TYPE_NUMBER
+      if value == value and value > -2 ^ 43 and value < 2 ^ 43 then
+        local scaled = value * 257
+        acc = (scaled - scaled % 1) % 0x10000
+      else
+        acc = 0x5A7
+      end
+    elseif t == "string" then
+      typeHash = TYPE_STRING
+      local len = #value
+      acc = (len * 131 + salt) % 0x10000
+      local sample = len < 4 and len or 4
+      for i = 1, sample do
+        local pos = ((idx + salt + i * 17) % len) + 1
+        acc = (acc * 33 + (byteOf(value, pos) or 0) + pos * 19) % 0x10000
+      end
+    elseif t == "table" then
+      typeHash = TYPE_TABLE
+    elseif t == "function" then
+      typeHash = TYPE_FUNCTION
+    elseif t == "thread" then
+      typeHash = TYPE_THREAD
+    elseif t == "userdata" then
+      typeHash = TYPE_USERDATA
+    end
+    mix((typeHash + acc + salt * 607) % 0x10000)
+  end
+  local function hashOperand(cell, salt)
+    if type(cell) ~= "table" then mix(salt * 17); return end
+    local value, tag = cell[CELL_VALUE] or 0, cell[CELL_TAG] or TAG_DEFAULT
+    local numHash = 0
+    if type(value) == "number" and value == value and value > -2 ^ 43 and value < 2 ^ 43 then
+      local scaled = value * 257
+      numHash = (scaled - scaled % 1) % 0x10000
+    end
+    mix((tag * 131 + numHash * 17 + salt) % 0x10000)
+    if tag == TAG_REGISTER then
+      hashValue(registers[value], salt + value)
+    elseif tag == TAG_IMMEDIATE or tag == TAG_CONST or tag == TAG_GLOBAL then
+      hashValue(value, salt + tag)
+    end
+  end
+  local function hashInstruction(sub, salt)
+    if type(sub) ~= "table" then mix(salt * 31); return end
+    local opIdx = vmTable.ecW(vmTable, sub)
+    mix(opIdx or 0)
+    if type(opIdx) == "number" then
+      hashValue(registers[opIdx], salt + opIdx)
+    end
+    hashOperand(vmTable.DBX(vmTable, sub), salt + 1)
+    hashOperand(vmTable.ioD(vmTable, sub), salt + 2)
+  end
+  local varargSplit = frame[FRAME_PARAM_SPLIT]
+  mix((idx * 0x7007 + (varargSplit or -1)) % 0x10000)
+  if type(varargSplit) == "number" and varargSplit >= 0 and varargSplit % 1 == 0 then
+    hashValue(registers[0], idx + 3)
+    hashValue(registers[varargSplit], idx + 5)
+    local head = varargSplit < 6 and varargSplit or 6
+    for i = 1, head do hashValue(registers[i], idx + i * 7) end
+    local upper = varargSplit + 1
+    for i = 1, 4 do
+      local pos = (stateHash + idx * 29 + i * 43) % upper
+      hashValue(registers[pos], idx + pos + i * 11)
+    end
+  end
+  mix(instr[INSTR_OPCODE] or 0)
+  hashInstruction(instr, 7)
+  local subInstrs = instr[INSTR_SUBINSTRS]
+  if type(subInstrs) == "table" and #subInstrs > 0 then
+    for i = 1, #subInstrs do hashInstruction(subInstrs[i], 11 + i * 2) end
+  end
+  vmTable.depthWitness = idx
+  vmTable.stateHash = stateHash
+end
+
+local function foldSessionToken(vmTable, frame, instr)
+  local writeRegister = vmTable.W
+  local byteOf = vmTable.sandbox.string.byte
+  local token = vmTable.sessionToken
+  local b1, b2, b3, b4 = 0, 0, 0, 0
+  if type(token) == "string" then
+    b1 = byteOf(token, 1) or 0; b2 = byteOf(token, 2) or 0
+    b3 = byteOf(token, 3) or 0; b4 = byteOf(token, 4) or 0
+  end
+  local hi = (b3 * 909 + b4 * 131 + 0x94E9) % 0x10000
+  local lo = (b1 * 749 + b2 * 257 + 0x1584) % 0x10000
+  local base = (lo + hi + 0xDCD0) % 0x10000
+  local mixv = (b1 * 17 + b2 * 29 + b3 * 43 + b4 * 59 + 0xB14) % 0x10000
+  local xorv = bxor((base * 857 + mixv) % 0x10000, (lo + 0x4B54) % 0x10000)
+  local _unused = (base * 219 + xorv * 7 + lo + 0x5DFD) % 0x10000
+  writeRegister(vmTable, frame, decodeDst(instr), base)
+end
+
+readVarint = function(data, pos)
+  local mul, val = 1, 0
+  while true do
+    if pos == nil or pos > #data then return nil, pos end
+    local b = data:byte(pos)
+    pos = pos + 1
+    val = val + (b % 128) * mul
+    if b < 128 then break end
+    mul = mul * 128
+    if mul > 0x100000000000000 then return nil, pos end
+  end
+  return val, pos
+end
+
+readDXM = function(data, pos)
+  local n
+  n, pos = readVarint(data, pos)
+  if n == nil then return nil, pos end
+  return data:sub(pos, pos + n - 1), pos + n
+end
+
+local GATE_I_PREFIX = "04xcgfOLVFc5kQk6"
+local GATE_CNS_PREFIX = "ENDIDekDhHAS"
+local B91_MAP = {}
+for i = 1, #PROGRAM_CHARSET do
+  B91_MAP[string.byte(PROGRAM_CHARSET, i)] = i - 1
+end
+
+qjCrypt = function(data, key)
+  local klen = #key
+  if klen == 0 then return "" end
+  local h = 173
+  for i = 1, klen do h = (h * 131 + key:byte(i) + i) % 0x10000 end
+  local cnn, npL = h, (klen * 13) % 256
+  local out = {}
+  for i = 1, #data do
+    local hAz = key:byte((i - 1) % klen + 1)
+    local wOj = (cnn + math.floor(cnn / 256) + hAz + npL) % 256
+    local cin = data:byte(i)
+    out[i] = string.char(bxor(cin, wOj))
+    npL = cin
+    cnn = (cnn + hAz * 17 + i * 11 + npL * 7) % 0x10000
+  end
+  return table.concat(out)
+end
+
+b91Decode = function(s)
+  local out, nBytes = {}, 0
+  local b, nbits, v = 0, 0, nil
+  for i = 1, #s do
+    local c = B91_MAP[s:byte(i)]
+    if c ~= nil then
+      if v == nil then v = c else v = v + c * 91 end
+      b = b + v * 2 ^ nbits
+      nbits = nbits + ((v % 8192) > 88 and 13 or 14)
+      while nbits >= 8 do
+        nBytes = nBytes + 1
+        out[nBytes] = string.char(b % 256)
+        b = math.floor(b / 256)
+        nbits = nbits - 8
+      end
+      v = nil
+    end
+  end
+  if v ~= nil then
+    out[#out + 1] = string.char((b + v * 2 ^ nbits) % 256)
+  end
+  return table.concat(out)
+end
+
+tncDecompress = function(data, expected)
+  if type(data) ~= "string" then return nil end
+  local out, n = {}, 0
+  local p = 1
+  while p <= #data do
+    local ctl = data:byte(p)
+    p = p + 1
+    if ctl >= 128 then
+      local length = ctl - 128 + 3
+      local d
+      d, p = readVarint(data, p)
+      if d == nil then return nil end
+      local dist = d + 1
+      if dist > n then return nil end
+      for _ = 1, length do
+        n = n + 1
+        out[n] = out[n - dist]
+      end
+    else
+      local cnt = ctl + 1
+      if p + cnt - 1 > #data then return nil end
+      for i = 1, cnt do
+        n = n + 1
+        out[n] = data:sub(p + i - 1, p + i - 1)
+      end
+      p = p + cnt
+    end
+    if expected and n > expected then return nil end
+  end
+  if expected and n ~= expected then return nil end
+  return table.concat(out)
+end
+
+gateI = function(s)
+  if type(s) ~= "string" or #s <= #GATE_I_PREFIX or s:sub(1, #GATE_I_PREFIX) ~= GATE_I_PREFIX then
+    return s
+  end
+  local pos = #GATE_I_PREFIX + 1
+  local blob
+  blob, pos = readDXM(s, pos)
+  local explen
+  explen, pos = readVarint(s, pos)
+  if blob == nil or explen == nil or pos ~= #s + 1 then return s end
+  return tncDecompress(blob, explen) or s
+end
+
+gateCNS = function(s)
+  if type(s) ~= "string" or #s == 0 then return "" end
+  local lt = b91Decode(s)
+  if #lt <= #GATE_CNS_PREFIX or lt:sub(1, #GATE_CNS_PREFIX) ~= GATE_CNS_PREFIX then
+    return lt
+  end
+  local pos = #GATE_CNS_PREFIX + 1
+  local data, key
+  data, pos = readDXM(lt, pos)
+  key, pos = readDXM(lt, pos)
+  if data == nil or key == nil or key == "" or pos ~= #lt + 1 then return lt end
+  return b91Decode(qjCrypt(data, key))
+end
+
+ixqvKeyUnwrap = function(E, onQ)
+  if onQ == nil then return E end
+  local out = {}
+  local st = onQ % 0x10000
+  for i = 1, #E do
+    st = (st * 639 + i * 0x4808) % 0x10000
+    out[i] = string.char((E:byte(i) - (st % 256)) % 256)
+  end
+  return table.concat(out)
+end
+
+constReadKey = function(constId)
+  return bxor(constId + CONST_SLOT_SUB, CONST_SLOT_XOR)
+end
+
+constIVD = function(readKey, vho, z, rlm)
+  return bxor(
+    ((readKey + MAC_ADD) * MAC_MUL + (vho or 0) + (z or 0) + ((rlm or 0x466C) * MAC_RLM_MUL)) % 0x10000,
+    MAC_XOR)
+end
+
+scanConstRecords = function(u)
+  local starts = {}
+  local p, n = 1, #u
+  while p <= n do
+    local startPos = p
+    local vals, ok = {}, true
+    for k = 1, 9 do
+      local v
+      v, p = readVarint(u, p)
+      if v == nil then ok = false; break end
+      vals[k] = v
+    end
+    if not ok then break end
+    local od9, swn, Sjn, Jc_ = vals[2], vals[3], vals[4], vals[5]
+    local endp = p + od9 + swn + Sjn + Jc_
+    if endp <= startPos or endp > n + 1 then break end
+    starts[#starts + 1] = startPos
+    p = endp
+  end
+  return starts
+end
+
+mnpcMap = function(xhJ, key)
+  local map = {}
+  if type(xhJ) ~= "string" or #xhJ == 0 then return map end
+  local dec = qjCrypt(xhJ, key)
+  local pos, i = 1, 1
+  while pos <= #dec do
+    local v
+    v, pos = readVarint(dec, pos)
+    if v == nil then break end
+    local mask = bxor((i * 453 + 0x664D) % 0x10000, key:byte((i - 1) % #key + 1))
+    map[i] = bxor(v % 0x100000000, mask)
+    i = i + 1
+  end
+  return map
+end
+
+readRecordMeta = function(stream, recPos)
+  if type(stream) ~= "string" or type(recPos) ~= "number" then return nil, nil end
+  local p, vals = recPos, {}
+  for k = 1, 9 do
+    local v
+    v, p = readVarint(stream, p)
+    if v == nil then return nil, nil end
+    vals[k] = v
+  end
+  return bxor(vals[6], 0x3F0), bxor(vals[9], 0x4D00)
+end
+
+decryptConst = function(vmTable, ctx)
+  local u, key = ctx.stream, ctx.key
+  if type(u) ~= "string" or type(ctx.recPos) ~= "number" or type(key) ~= "string" or #key == 0 then
+    return nil
+  end
+  local constId, S = ctx.constId or 0, ctx.envChecksum or 0x225E
+  local bay, gap, kav = ctx.bay or 0, ctx.gap or 0, ctx.kav or 0
+  local usG0 = ctx.keystreamSeed
+  local p = ctx.recPos
+  local dsV, Ha4, PiG, ViK, ytQ
+  local Zrw, td7, ad8, ZeW
+  dsV, p = readVarint(u, p); Ha4, p = readVarint(u, p)
+  PiG, p = readVarint(u, p); ViK, p = readVarint(u, p)
+  ytQ, p = readVarint(u, p)
+  Zrw, p = readVarint(u, p); td7, p = readVarint(u, p)
+  ad8, p = readVarint(u, p); ZeW, p = readVarint(u, p)
+  if dsV == nil or Ha4 == nil or PiG == nil or ViK == nil or ytQ == nil
+    or Zrw == nil or td7 == nil or ad8 == nil or ZeW == nil then
+    return nil
+  end
+  if (PiG + ViK) <= 0 then return nil end
+  local Gb6 = bxor(Zrw, 0x3F0)
+  local j = bxor(ZeW, 0x4D00)
+  local rr = bxor(td7, 0x5A42)
+  local jj = (bxor(ad8, 0x3B54) % 6) + 1
+  local Xak = (bxor(dsV, 0x77DB) % 6)
+  local od9, swn, Sjn, Jc_ = Ha4, PiG, ViK, ytQ
+  local mm = p
+  local keu, qec
+  if Xak == 0 then
+    keu, qec = mm + od9, mm + od9 + swn
+  elseif Xak == 1 then
+    keu, qec = mm, mm + swn + od9 + Jc_
+  elseif Xak == 2 then
+    keu, qec = mm + Sjn + Jc_ + od9, mm
+  elseif Xak == 3 then
+    keu, qec = mm + Jc_, mm + Jc_ + swn + od9
+  elseif Xak == 4 then
+    keu, qec = mm, mm + swn + Jc_
+  else
+    keu, qec = mm + Sjn + od9, mm
+  end
+  local pig = (Gb6 % 4) >= 2 and rr > 0
+  local usG = 0
+  if pig and usG0 then usG = usG0(constId, rr, j) or 0 end
+
+  local function vvfByte(ptJ, cl8, g, eeY)
+    local Bvw = (usG + (constId * 7 + j * 31) + ptJ * 745 + g + 0x5A42) % 256
+    if jj == 1 then return Bvw
+    elseif jj == 2 then
+      return bxor(Bvw, (usG + ptJ * 487 + j * 13 + rr * 5 + g + 0xD04F) % 256)
+    elseif jj == 3 then
+      return (Bvw + ptJ * 29 + j * 11 + rr * 3 + g + 0xD04F) % 256
+    elseif jj == 4 then
+      local umO = ((cl8 - ptJ + 1) * 487 + rr + 0x6A32) % 256
+      return bxor((usG + umO + j * 19 + g) % 256, (Bvw + ptJ * 3) % 256)
+    elseif jj == 5 then
+      return (Bvw + ((ptJ % 5) + 1) * 17 + rr * 7 + j * 5 + g + 0xD04F) % 256
+    elseif jj == 6 then
+      return bxor((Bvw + eeY + ptJ * 13 + constId * 9 + rr * 23) % 256,
+        (usG + eeY * 7 + ptJ + j + g + 0xD04F) % 256)
+    end
+    return bxor((Bvw + ptJ * 13 + j * 9 + rr * 23 + g) % 256, (usG + ptJ + j + 0xD04F) % 256)
+  end
+
+  local function xceSegment(ZcT, Ra5, ecA)
+    if Ra5 <= 0 then return "" end
+    local klen = #key
+    local out = {}
+    local CeA = (usG + j * 17 + S + 0x6F67) % 256
+    local Ytj2 = (j + 0xFA07 + Xak * 497) % 0x10000
+    local zhX = j
+    local PP
+    if pig and jj == 6 then PP = (usG + constId * 839 + rr * 847 + 0x6F67) % 256 end
+    for zEl = 1, Ra5 do
+      local Vr8 = u:byte(ZcT + zEl - 1)
+      local joD = ecA + zEl - 1
+      local Hjs = ((joD + zhX * 795 + 0xEFD + Ytj2) % klen) + 1
+      local lI8 = key:byte(Hjs)
+      local euKey = ((zhX + 0x5174) * 921 + joD * 999 + Xak * 19 + 0x5375 + Ytj2) % 256
+      local IzD = bxor(Vr8, bxor(lI8, euKey))
+      Ytj2 = (Ytj2 * 531 + Vr8 + joD * 497 + j) % 0x10000
+      if pig then
+        local Rjh = vvfByte(zEl, Ra5, CeA, PP or 0)
+        local kaP = IzD
+        if PP then PP = (PP * 847 + kaP + zEl * 839 + zhX + rr + 0x3735) % 256 end
+        CeA = (CeA * 847 + kaP + zEl * 839 + j + rr + S) % 256
+        IzD = bxor(IzD, Rjh)
+      end
+      out[zEl] = IzD
+    end
+    for i = 1, Ra5 do out[i] = string.char(out[i]) end
+    return table.concat(out)
+  end
+
+  local plain = xceSegment(keu, PiG, 1)
+  if ViK ~= 0 then
+    local qAM = xceSegment(qec, ViK, PiG + 1)
+    plain = qjCrypt(plain, qAM)
+  end
+  if (Gb6 % 8) >= 4 then
+    local Gvy = (0xF1EC + #plain * 953 + 0x72CA) % 0x10000
+    for Kb7 = 1, #plain do
+      Gvy = (Gvy * 907 + plain:byte(Kb7) + Kb7 * 85 + 0x72CA) % 0x10000
+    end
+    if Gvy ~= j then return nil end
+  end
+  if #plain == 0 then return "" end
+  local tag = plain:byte(#plain)
+  local body = {}
+  for i = 1, #plain - 1 do
+    body[i] = string.char((plain:byte(i) + 242) % 256)
+  end
+  body = table.concat(body)
+  if tag == 11 then return tonumber(body) end
+  if tag == 4 then return body end
+  if tag == 7 then return body == "true" end
+  if tag == 6 then return nil end
+  return body
+end
+
+local function forgedNilCallError(instr)
+  local line = instr[INSTR_LINE]
+  local msg = "attempt to call a nil value"
+  if type(line) == "number" and line > 0 then
+    msg = "script:" .. tostring(line) .. ": " .. msg
+  end
+  error(msg, 0)
+end
+
+vm.crypto = {
+  readVarint = readVarint,
+  readDXM = readDXM,
+  qjCrypt = qjCrypt,
+  b91Decode = b91Decode,
+  gateI = gateI,
+  gateCNS = gateCNS,
+  tncDecompress = tncDecompress,
+  ixqvKeyUnwrap = ixqvKeyUnwrap,
+  mnpcMap = mnpcMap,
+  scanConstRecords = scanConstRecords,
+  readRecordMeta = readRecordMeta,
+  decryptConst = decryptConst,
+  constReadKey = constReadKey,
+  constIVD = constIVD,
+  qcz = function(stream, recPos, constId, key, rawA, rawB, rawC)
+    local bay = bxor(rawA or 0xD8FB, 0xD8FB)
+    local gap = ((rawB or 0xBFD2) - 0xBFD2) % 0x10000
+    local kav = bxor(rawC or 0xE843, 0xE843)
+    local S = 0x225E
+    local function bcq(aa, FF, yy)
+      if FF == nil or FF <= 0 then return 0 end
+      aa, yy = aa or 0, yy or 0
+      local s1 = ((FF + 0xF78 + bay) * 937 + aa * 671 + yy * 265 + FF + 0xFA81 + gap + kav + S) % 0x10000
+      local s2 = ((FF + 0x894 + gap) * 597 + aa + yy * 85 + bay + bxor(kav, (aa + yy) % 0x10000) + S) % 0x10000
+      return (bxor(s1, s2) + FF * 17 + aa * 13 + yy * 907 + FF * 7 + S + 0x5308) % 0x10000
+    end
+    return decryptConst(nil, {
+      stream = stream,
+      recPos = recPos,
+      constId = constId,
+      key = key,
+      bay = bay,
+      gap = gap,
+      kav = kav,
+      envChecksum = S,
+      keystreamSeed = bcq,
+    })
+  end,
+}
+
+return vm
