@@ -1,0 +1,191 @@
+-- Ironbrew1 Anti-Tamper | Generated from Lua Land Hub | .gg/Zame2JAGDr
+		
+local _guard = (function()
+	local type = type
+	local pcall = pcall
+	local xpcall = xpcall
+	local error = error
+	local rawget = rawget
+	local rawset = rawset
+	local getmetatable = getmetatable
+	local setmetatable = setmetatable
+	local tostring = tostring
+	local tonumber = tonumber
+	local gmatch = string and string.gmatch
+	local unpack = unpack or (table and table.unpack)
+	local print = print
+	local warn = _G and _G.warn
+	local newproxy = newproxy
+	local debugInfo = debug and debug.info
+	local failed = false
+
+	local function abort()
+		if type(error) == "function" then
+			error("IronBrew1 anti-tamper check failed", 0)
+		end
+
+		return (nil)[1]
+	end
+
+	if
+		type(type) ~= "function"
+		or type(pcall) ~= "function"
+		or type(xpcall) ~= "function"
+		or type(error) ~= "function"
+		or type(rawget) ~= "function"
+		or type(rawset) ~= "function"
+		or type(getmetatable) ~= "function"
+		or type(setmetatable) ~= "function"
+	then
+		abort()
+	end
+
+	local env
+
+	if type(getfenv) == "function" then
+		local ok, value = pcall(getfenv)
+
+		if ok then
+			env = value
+		end
+	end
+
+	if env == nil then
+		env = _G
+	end
+
+	if type(env) ~= "table" or type(print) ~= "function" or (warn ~= nil and type(warn) ~= "function") then
+		failed = true
+	end
+
+	local slot = {}
+	local marker = function() end
+	local writeOk = pcall(rawset, slot, -271823, marker)
+
+	if not writeOk or rawget(slot, -271823) ~= marker then
+		failed = true
+	end
+
+	rawset(slot, -271823, nil)
+
+	if rawget(slot, -271823) ~= nil or pcall(error) then
+		failed = true
+	end
+
+		local function lineProbe() return (nil)[1] end
+
+	if
+		type(debugInfo) == "function"
+		and type(gmatch) == "function"
+		and type(tostring) == "function"
+		and type(tonumber) == "function"
+	then
+		local lineOk, line = pcall(debugInfo, lineProbe, "l")
+		local sourceOk, source = pcall(debugInfo, lineProbe, "s")
+		local errorLine
+		local callOk = xpcall(lineProbe, function(message)
+			for digits in gmatch(tostring(message), ":(%d+):") do
+				errorLine = tonumber(digits)
+			end
+
+			return message
+		end)
+
+		if
+			callOk
+			or not lineOk
+			or type(line) ~= "number"
+			or not sourceOk
+			or type(source) ~= "string"
+			or source == "[C]"
+			or type(errorLine) ~= "number"
+			or line ~= errorLine
+		then
+			failed = true
+		end
+
+		local nativeOk, nativeSource = pcall(debugInfo, error, "s")
+
+		if nativeOk and type(nativeSource) == "string" and nativeSource ~= "[C]" then
+			failed = true
+		end
+	end
+
+	local canaries = {}
+
+	local function tripwire()
+		failed = true
+		abort()
+	end
+
+	if type(newproxy) == "function" then
+		local proxyOk, proxy = pcall(newproxy, true)
+
+		if not proxyOk or proxy == nil then
+			failed = true
+		else
+			local metatableOk, metatable = pcall(getmetatable, proxy)
+
+			if not metatableOk or type(metatable) ~= "table" then
+				failed = true
+			else
+				metatable.__tostring = tripwire
+				metatable.__concat = tripwire
+				metatable.__call = tripwire
+				canaries[#canaries + 1] = proxy
+			end
+		end
+	end
+
+	local function addCanary(lock)
+		local value = {}
+		local metatable = {
+			__metatable = lock,
+			__tostring = tripwire,
+			__concat = tripwire,
+			__iter = tripwire,
+		}
+		local ok, result = pcall(setmetatable, value, metatable)
+
+		if not ok or result ~= value then
+			failed = true
+			return
+		end
+
+		local readOk, visibleMetatable = pcall(getmetatable, value)
+
+		if not readOk or visibleMetatable ~= lock then
+			failed = true
+		end
+
+		canaries[#canaries + 1] = value
+	end
+
+	addCanary("tddxhpfcpi")
+	addCanary("lsphhfstdm")
+	addCanary("vymgglkhqr")
+
+	if type(unpack) == "function" then
+		local ok = pcall(unpack, {}, 0, 64)
+
+		if not ok then
+			failed = true
+		end
+	end
+
+	if type(env) == "table" then
+		if type(print) == "function" and env.print ~= print then
+			failed = true
+		end
+
+		if type(warn) == "function" and env.warn ~= warn then
+			failed = true
+		end
+	end
+
+	if failed then
+		abort()
+	end
+
+	return canaries
+end)()
